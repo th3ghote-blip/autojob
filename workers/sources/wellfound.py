@@ -42,33 +42,39 @@ class WellfoundSource(Source):
             return iter(())
 
         url = config.get("search_url", DEFAULT_SEARCH)
-
-        with sync_playwright() as pw:
-            browser = pw.chromium.launch(headless=True)
-            ctx = browser.new_context(storage_state=str(AUTH_PATH))
-            page = ctx.new_page()
-            page.goto(url, wait_until="networkidle", timeout=60000)
-            page.wait_for_timeout(3000)
-            cards = page.query_selector_all("[data-test='JobSearchCard']")
-            for card in cards:
-                title_el = card.query_selector("[class*='Title']")
-                company_el = card.query_selector("[class*='CompanyName']")
-                link_el = card.query_selector("a[href*='/jobs/']")
-                if not (title_el and company_el and link_el):
-                    continue
-                href = link_el.get_attribute("href") or ""
-                jid = href.rstrip("/").split("/")[-1].split("-", 1)[0]
-                if not jid:
-                    continue
-                yield RawListing(
-                    external_id=jid,
-                    payload_json={
-                        "url": "https://wellfound.com" + href if href.startswith("/") else href,
-                        "title": (title_el.inner_text() or "").strip(),
-                        "company": (company_el.inner_text() or "").strip(),
-                    },
-                )
-            browser.close()
+        results: list[RawListing] = []
+        try:
+            with sync_playwright() as pw:
+                browser = pw.chromium.launch(headless=True)
+                try:
+                    ctx = browser.new_context(storage_state=str(AUTH_PATH))
+                    page = ctx.new_page()
+                    page.goto(url, wait_until="networkidle", timeout=60000)
+                    page.wait_for_timeout(3000)
+                    for card in page.query_selector_all("[data-test='JobSearchCard']"):
+                        title_el = card.query_selector("[class*='Title']")
+                        company_el = card.query_selector("[class*='CompanyName']")
+                        link_el = card.query_selector("a[href*='/jobs/']")
+                        if not (title_el and company_el and link_el):
+                            continue
+                        href = link_el.get_attribute("href") or ""
+                        jid = href.rstrip("/").split("/")[-1].split("-", 1)[0]
+                        if not jid:
+                            continue
+                        results.append(RawListing(
+                            external_id=jid,
+                            payload_json={
+                                "url": "https://wellfound.com" + href if href.startswith("/") else href,
+                                "title": (title_el.inner_text() or "").strip(),
+                                "company": (company_el.inner_text() or "").strip(),
+                            },
+                        ))
+                finally:
+                    browser.close()
+        except Exception:  # noqa: BLE001
+            # Browser binary missing or any runtime failure — silent skip.
+            return iter(())
+        return iter(results)
 
     def parse(self, raw: RawListing) -> NormalizedJob | None:
         item = raw.payload_json
