@@ -1,13 +1,17 @@
 name: send
-# Sends every ready_to_send outreach up to the daily cap.
+# Sends one outreach (workflow_dispatch with outreach_id) or, in batch mode,
+# every ready_to_send outreach up to max. Cron is disabled by default — sending
+# is user-initiated via the /jobs/[id] Send button.
 
 on:
-  schedule:
-    - cron: '0 14 * * *'
   workflow_dispatch:
     inputs:
+      outreach_id:
+        description: 'Single-send mode: outreach UUID to send'
+        required: false
+        default: ''
       max:
-        description: 'Max sends this run'
+        description: 'Batch mode: max sends this run'
         required: false
         default: '20'
 
@@ -22,6 +26,7 @@ jobs:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       GMAIL_USER: ${{ secrets.GMAIL_USER }}
       GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+      OUTREACH_INPUT: ${{ github.event.inputs.outreach_id }}
       MAX_INPUT: ${{ github.event.inputs.max }}
     steps:
       - uses: actions/checkout@v4
@@ -31,8 +36,12 @@ jobs:
           cache: pip
           cache-dependency-path: workers/requirements.txt
       - run: pip install -r workers/requirements.txt
-      - name: Send queued
+      - name: Send
         shell: bash
         run: |
-          MAX="${MAX_INPUT:-20}"
-          python -m workers.send --max "$MAX"
+          if [ -n "$OUTREACH_INPUT" ]; then
+            python -m workers.send --outreach "$OUTREACH_INPUT"
+          else
+            MAX="${MAX_INPUT:-20}"
+            python -m workers.send --max "$MAX"
+          fi

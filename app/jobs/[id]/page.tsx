@@ -1,6 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { marked } from 'marked'
 import Shell from '@/components/Shell'
+import LetterActions from '@/components/LetterActions'
 import { isOwner } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 
@@ -42,6 +43,13 @@ export default async function JobDetailPage({ params }: { params: { id: string }
               <div
                 className="prose-letter text-sm"
                 dangerouslySetInnerHTML={{ __html: marked.parse(latestLetter.body_md || '') as string }}
+              />
+              <LetterActions
+                outreachId={outreach?.id || null}
+                letter={{ subject: latestLetter.subject, body_md: latestLetter.body_md }}
+                jobUrl={job.url}
+                contactEmail={job.contact_email}
+                alreadySent={!!outreach?.sent_at || ['sent','opened','replied','demo_booked','won'].includes(outreach?.stage || '')}
               />
             </div>
           ) : (

@@ -12,8 +12,10 @@ type Search = {
   source?: string
   min_fit?: string
   has_email?: string
+  posted_within?: string  // '7' | '30' | '90' | 'any'
   q?: string
   page?: string
+  sort?: string  // 'posted' | 'created'
 }
 
 const PAGE_SIZE = 50
@@ -31,10 +33,20 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
   const source = searchParams.source || ''
   const minFit = parseInt(searchParams.min_fit || '0', 10) || 0
   const hasEmail = searchParams.has_email === '1'
+  const postedWithin = searchParams.posted_within ?? '7'  // default: last 7 days
+  const sort = searchParams.sort || 'posted'
   const q = (searchParams.q || '').trim()
   const page = Math.max(1, parseInt(searchParams.page || '1', 10) || 1)
   const from = (page - 1) * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
+
+  let postedAfter: string | null = null
+  if (postedWithin && postedWithin !== 'any') {
+    const days = parseInt(postedWithin, 10)
+    if (days > 0) {
+      postedAfter = new Date(Date.now() - days * 86400 * 1000).toISOString()
+    }
+  }
 
   // Resolve source slug -> id BEFORE the main query so we can filter on jobs.source_id
   // (PostgREST embedded filters don't restrict the parent, only the join).
@@ -57,17 +69,18 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
   let query = sb
     .from('jobs')
     .select(
-      'id, title, location, remote, comp_min, comp_max, contact_email, posted_at, status, skip_reason, ' +
-        'sources(slug, name), companies(name, fit_score), ' +
+      'id, title, url, location, remote, comp_min, comp_max, contact_email, posted_at, status, skip_reason, ' +
+        'sources(slug, name, kind), companies(name, fit_score), ' +
         'outreach(stage, pitch_angle, letters(id))',
       { count: 'exact' },
     )
-    .order('created_at', { ascending: false })
+    .order(sort === 'posted' ? 'posted_at' : 'created_at', { ascending: false, nullsFirst: false })
     .range(from, to)
 
   if (status) query = query.eq('status', status)
   if (sourceId) query = query.eq('source_id', sourceId)
   if (hasEmail) query = query.not('contact_email', 'is', null)
+  if (postedAfter) query = query.gte('posted_at', postedAfter)
   if (q) query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`)
   // min_fit applies to companies.fit_score; supabase REST doesn't support a join-filter cleanly
   // for single-row joins. We filter post-fetch below if min_fit > 0.
@@ -121,6 +134,20 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
         <Field label="Has email">
           <input name="has_email" type="checkbox" value="1" defaultChecked={hasEmail} />
         </Field>
+        <Field label="Posted within">
+          <select name="posted_within" defaultValue={postedWithin} className="border rounded px-2 py-1">
+            <option value="7">7 days</option>
+            <option value="30">30 days</option>
+            <option value="90">90 days</option>
+            <option value="any">any</option>
+          </select>
+        </Field>
+        <Field label="Sort">
+          <select name="sort" defaultValue={sort} className="border rounded px-2 py-1">
+            <option value="posted">posted_at</option>
+            <option value="created">created_at</option>
+          </select>
+        </Field>
         <Field label="Search">
           <input
             name="q"
@@ -141,11 +168,10 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
               <th className="p-2">Title</th>
               <th className="p-2">Company</th>
               <th className="p-2">Source</th>
+              <th className="p-2">Apply</th>
               <th className="p-2">Status</th>
               <th className="p-2">Fit</th>
-              <th className="p-2">Tier / Pitch</th>
               <th className="p-2">Comp</th>
-              <th className="p-2">Email</th>
               <th className="p-2">Posted</th>
               <th className="p-2"></th>
             </tr>
@@ -166,6 +192,9 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
                 <td className="p-2">{r.companies?.name || '—'}</td>
                 <td className="p-2 text-xs font-mono text-neutral-500">{r.sources?.slug}</td>
                 <td className="p-2">
+                  <ApplyMethodBadge job={r} />
+                </td>
+                <td className="p-2">
                   <StatusPill status={r.status} />
                 </td>
                 <td className="p-2">
@@ -176,13 +205,7 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
                   ) : '—'}
                 </td>
                 <td className="p-2 text-xs">
-                  {r.outreach?.[0]?.pitch_angle || '—'}
-                </td>
-                <td className="p-2 text-xs">
                   {fmtComp(r.comp_min, r.comp_max)}
-                </td>
-                <td className="p-2 text-xs text-neutral-500 truncate max-w-[14ch]">
-                  {r.contact_email || '—'}
                 </td>
                 <td className="p-2 text-xs text-neutral-500">
                   {r.posted_at ? new Date(r.posted_at).toLocaleDateString() : '—'}
@@ -196,7 +219,7 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
               </tr>
             ))}
             {items.length === 0 && (
-              <tr><td colSpan={10} className="p-8 text-center text-neutral-500">No jobs match these filters.</td></tr>
+              <tr><td colSpan={9} className="p-8 text-center text-neutral-500">No jobs match these filters.</td></tr>
             )}
           </tbody>
         </table>
@@ -229,6 +252,32 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </label>
   )
+}
+
+function ApplyMethodBadge({ job }: { job: any }) {
+  const kind = job?.sources?.kind
+  if (job.contact_email) {
+    return (
+      <span title={`email: ${job.contact_email}`} className="text-[11px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">
+        📧 email
+      </span>
+    )
+  }
+  if (kind === 'ats') {
+    return (
+      <span title="ATS apply form (no email)" className="text-[11px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+        🔗 form
+      </span>
+    )
+  }
+  if (job.url) {
+    return (
+      <span title="Apply URL" className="text-[11px] bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded">
+        🌐 url
+      </span>
+    )
+  }
+  return <span className="text-[11px] text-neutral-400">—</span>
 }
 
 function StatusPill({ status }: { status: string }) {
