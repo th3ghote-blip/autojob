@@ -15,6 +15,7 @@ import httpx
 from bs4 import BeautifulSoup
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from ..profile import hard_reject
 from .base import NormalizedJob, RawListing, Source
 
 INDEX = "https://ai-jobs.net/"
@@ -75,6 +76,8 @@ class AiJobsSource(Source):
         if not title or not company:
             return None
         location = item.get("location") or None
+        if hard_reject(title, None, location):
+            return None
         return NormalizedJob(
             external_id=raw.external_id,
             title=title,

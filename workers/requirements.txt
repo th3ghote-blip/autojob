@@ -8,3 +8,4 @@ python-dotenv==1.0.1
 tenacity==9.0.0
 pydantic==2.10.3
 markdown==3.7
+pyyaml==6.0.2

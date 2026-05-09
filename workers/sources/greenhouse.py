@@ -17,10 +17,10 @@ from typing import Any, Iterable
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from ..profile import hard_reject
 from .base import NormalizedJob, RawListing, Source
 
 API = "https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true"
-AI_KEYWORDS = ("ai", "ml ", "machine learning", "llm", "applied ai", "research engineer", "ml engineer")
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=8))
@@ -59,16 +59,16 @@ class GreenhouseSource(Source):
         title = (item.get("title") or "").strip()
         if not title:
             return None
-        # Filter to AI-related roles only.
-        haystack = (title + " " + (item.get("content") or "")).lower()
-        if not any(k in haystack for k in AI_KEYWORDS):
-            return None
 
         company_slug = item.get("company_slug")
         company_name = (item.get("company") or {}).get("name") or _humanize(company_slug)
         location = (item.get("location") or {}).get("name")
         # Greenhouse content is HTML — strip for storage; full HTML lives in job_raw.
         description = re.sub(r"<[^>]+>", " ", item.get("content") or "").strip()
+
+        # Cheap pre-filter — skip obvious junk before LLM qualifier sees it.
+        if hard_reject(title, description, location):
+            return None
 
         return NormalizedJob(
             external_id=raw.external_id,

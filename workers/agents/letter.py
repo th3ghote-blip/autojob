@@ -1,51 +1,68 @@
-"""Cover letter / consulting pitch generator.
+"""Cover letter / consulting pitch / retainer pitch generator.
 
-Uses the company's research_json + the job's description + the user's
-fixed identity (AiAppGenius founder, full-stack solo) to produce a
-short, hand-crafted-feeling email plus a one-line subject.
+Three angles, picked by outreach.pitch_angle (set by the qualifier):
+  - "job_application": Andrew is applying for the role. Lean on edges that
+    match the role description; close with the share-link demo CTA.
+  - "consulting": pitch a paid AiAppGenius engagement instead of a hire,
+    framed as "you're hiring 3+ for this — let me ship the first version
+    in 6 weeks, you keep hiring for the rest".
+  - "retainer": pitch a small add-on engagement to AiAppGenius's existing
+    studio book ($2.5k+/mo) for sub-$100k roles that are otherwise a fit.
 
-Two angles, picked based on outreach.pitch_angle:
-  - "job_application": pitch for the role, lean on building the very
-    automation that surfaced this letter.
-  - "consulting": pitch a brief paid engagement instead, since the company
-    is clearly already trying to hire for the problem.
-
-The body always ends with a CTA that links to the recruiter share page.
-The share-link URL is materialised by the sender, not here — we leave
-the placeholder {{SHARE_LINK}} in the markdown body.
+The body always ends with a CTA that links to {{SHARE_LINK}} — the sender
+materialises the per-recruiter share URL at send time.
 """
 from __future__ import annotations
 
 import json
+import re
 import time
 from typing import Any
 
 from ..db import db
 from ..process import log_step
+from ..profile import load_profile, profile_for_prompt
 from .claude import complete
 
-SYSTEM_JOB = """You are writing a brief, sharp outreach email from a solo founder/engineer
-applying for a role. Tone: confident but not boastful, specific to the company's situation,
-zero generic LinkedIn-speak. 90-180 words MAX. Close with a CTA pointing to {{SHARE_LINK}},
-which is a page that demonstrates the AI agent that found and personalised this email.
 
-Reply with ONLY a JSON object matching this schema:
-{
-  "subject": string,        // <= 70 chars, no clickbait
-  "body_md": string         // markdown, must contain the literal token {{SHARE_LINK}} on a CTA line
-}"""
+SYSTEM_TEMPLATE = """You are writing a brief, sharp outreach email from {name}, a solo full-stack
+engineer / founder of AiAppGenius. The recipient is a recruiter or hiring manager at the company below.
 
-SYSTEM_CONSULT = """You are writing a brief, sharp outreach email from a solo founder of AiAppGenius
-proposing a small paid engagement INSTEAD of full-time hire — because the company is currently
-hiring for the same kind of problem he ships fast. Tone: confident, respectful of their hiring
-process, framed as an alternative not a replacement. 90-180 words MAX. Close with a CTA pointing
-to {{SHARE_LINK}}, which is a page that demonstrates the AI agent that found and personalised this email.
+Tone: confident but not boastful, specific to the company's situation, zero generic LinkedIn-speak.
+90-180 words MAX. Do NOT pad. Do NOT use "exciting" or "passionate". Do NOT list edges as bullets —
+weave 1-2 of them into prose where they connect to the company's actual stated need.
 
-Reply with ONLY a JSON object matching this schema:
-{
-  "subject": string,        // <= 70 chars
-  "body_md": string         // markdown, must contain the literal token {{SHARE_LINK}}
-}"""
+Close with a CTA that points to {{SHARE_LINK}} — a page that demonstrates the AI agent that found
+this role and personalised this email. Phrase it as proof of the work, not as a generic link.
+
+Pitch angle for THIS email: {angle_instruction}
+
+Reply with ONLY a JSON object — no prose, no markdown, no code fences:
+{{
+  "subject": string,        // <= 70 chars, no clickbait, no emoji
+  "body_md": string         // markdown, MUST contain the literal token {{{{SHARE_LINK}}}} in a CTA line
+}}"""
+
+
+ANGLE_INSTRUCTIONS = {
+    "job_application": (
+        "Andrew is applying for THIS role. The role is a strong genuine fit — write as a candidate, "
+        "not a vendor. Reference one specific thing in the job description and connect it to one of "
+        "Andrew's edges. Avoid 'I built X' resume-listing; instead show alignment with what they need."
+    ),
+    "consulting": (
+        "Andrew is NOT applying for the role — he's offering to ship the same outcome as a paid "
+        "AiAppGenius engagement, faster and cheaper than the hire. Frame it as an alternative path, "
+        "respectful of the recruiter's process. If the company is hiring multiple similar roles, "
+        "lean into 'let me deliver V1 in 6 weeks while you keep hiring for the rest'."
+    ),
+    "retainer": (
+        "The role is a fit but the budget is below $100k/yr — too small for full-time. Pitch a small "
+        "add-on engagement to AiAppGenius's existing studio book ($2.5k+/mo retainer or fixed-scope "
+        "project), so they get the work done without committing to a hire. Frame as low-friction, "
+        "month-to-month, easy to start and stop."
+    ),
+}
 
 
 def draft_letter(outreach_id: str) -> dict[str, Any]:
@@ -54,37 +71,36 @@ def draft_letter(outreach_id: str) -> dict[str, Any]:
     job = o["jobs"]
     company = o["companies"]
     settings = db().table("settings").select("*").eq("id", 1).single().execute().data
+    profile = load_profile()
     angle = o.get("pitch_angle") or settings.get("pitch_default") or "consulting"
 
-    user_msg = (
-        f"COMPANY: {company['name']}\n"
-        f"WEBSITE: {company.get('website') or company.get('domain') or '(unknown)'}\n"
-        f"INDUSTRY: {company.get('research_json', {}).get('industry') or '—'}\n"
-        f"WHAT THEY DO: {company.get('research_summary') or '—'}\n"
-        f"FIT SIGNALS: {json.dumps(company.get('research_json', {}).get('automation_pain_signals') or [])}\n"
-        f"AI SIGNALS: {json.dumps(company.get('research_json', {}).get('ai_investment_signals') or [])}\n\n"
-        f"ROLE: {job['title']}\n"
-        f"ROLE DESCRIPTION (truncated):\n{(job.get('description') or '')[:2500]}\n\n"
-        f"SENDER: {settings.get('sender_name')}, {settings.get('sender_title')} of AiAppGenius\n"
-        f"SENDER STRENGTH: solo full-stack engineer who ships AI-powered internal tools and "
-        f"outreach/automation systems quickly (Next.js + Supabase + Python + Claude).\n"
-        f"REPLY-TO: {settings.get('from_email')}"
+    angle_instruction = ANGLE_INSTRUCTIONS.get(angle, ANGLE_INSTRUCTIONS["consulting"])
+    sys_prompt = SYSTEM_TEMPLATE.format(
+        name=profile["identity"]["name"],
+        angle_instruction=angle_instruction,
     )
 
-    sys_prompt = SYSTEM_JOB if angle == "job_application" else SYSTEM_CONSULT
-    result = complete(system=sys_prompt, user=user_msg, max_tokens=900)
+    user_msg = (
+        "OPERATOR PROFILE:\n" + profile_for_prompt() + "\n\n"
+        "TARGET COMPANY:\n"
+        f"Name: {company['name']}\n"
+        f"Website: {company.get('website') or company.get('domain') or '(unknown)'}\n"
+        f"Industry: {(company.get('research_json') or {}).get('industry') or '—'}\n"
+        f"What they do: {company.get('research_summary') or '—'}\n"
+        f"Automation pain signals: {json.dumps((company.get('research_json') or {}).get('automation_pain_signals') or [])}\n"
+        f"AI investment signals: {json.dumps((company.get('research_json') or {}).get('ai_investment_signals') or [])}\n\n"
+        "TARGET ROLE:\n"
+        f"Title: {job['title']}\n"
+        f"Description (truncated):\n{(job.get('description') or '')[:2500]}\n\n"
+        f"REPLY-TO (Andrew's email): {settings.get('from_email')}"
+    )
 
-    try:
-        parsed = json.loads(result["text"])
-    except Exception:
-        import re
-        m = re.search(r"\{[\s\S]+\}", result["text"])
-        parsed = json.loads(m.group(0)) if m else {}
+    result = complete(system=sys_prompt, user=user_msg, max_tokens=900)
+    parsed = _parse_json(result["text"])
 
     subject = parsed.get("subject") or f"Re: {job['title']}"
     body_md = parsed.get("body_md") or result["text"]
 
-    # Bump version.
     last = (
         db().table("letters").select("version")
         .eq("outreach_id", outreach_id).order("version", desc=True).limit(1).execute()
@@ -106,7 +122,7 @@ def draft_letter(outreach_id: str) -> dict[str, Any]:
     log_step(
         outreach_id,
         kind="letter_drafted",
-        title=f"Drafted {angle.replace('_', ' ')} letter v{version}",
+        title=f"Drafted {angle.replace('_', ' ')} email v{version}",
         summary=f"**Subject:** {subject}\n\n{body_md}",
         inputs={"angle": angle, "company": company['name'], "role": job['title']},
         outputs={"subject": subject, "version": version},
@@ -116,3 +132,11 @@ def draft_letter(outreach_id: str) -> dict[str, Any]:
     )
 
     return letter
+
+
+def _parse_json(text: str) -> dict[str, Any]:
+    try:
+        return json.loads(text)
+    except Exception:
+        m = re.search(r"\{[\s\S]+\}", text)
+        return json.loads(m.group(0)) if m else {}

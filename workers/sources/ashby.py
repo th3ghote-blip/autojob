@@ -13,10 +13,10 @@ from typing import Any, Iterable
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from ..profile import hard_reject
 from .base import NormalizedJob, RawListing, Source
 
 API = "https://api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true"
-AI_KEYWORDS = ("ai", "ml ", "machine learning", "llm", "applied")
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=8))
@@ -54,8 +54,7 @@ class AshbySource(Source):
         title = (item.get("title") or "").strip()
         if not title:
             return None
-        haystack = (title + " " + (item.get("descriptionPlain") or "")).lower()
-        if not any(k in haystack for k in AI_KEYWORDS):
+        if hard_reject(title, item.get("descriptionPlain"), item.get("locationName")):
             return None
 
         comp = item.get("compensation") or {}

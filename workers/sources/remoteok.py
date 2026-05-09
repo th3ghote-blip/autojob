@@ -10,6 +10,7 @@ from typing import Any, Iterable
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from ..profile import hard_reject
 from .base import NormalizedJob, RawListing, Source
 
 
@@ -32,14 +33,11 @@ class RemoteOKSource(Source):
 
     def discover(self, config: dict[str, Any]) -> Iterable[RawListing]:
         feed_url = config.get("feed", "https://remoteok.com/api")
-        wanted_tags = {t.lower() for t in config.get("tags", ["ai", "ml"])}
+        # No tag pre-filter — let the LLM qualifier decide. RemoteOK feed is small
+        # enough (a few hundred jobs) that we can afford the wider net.
         items = _fetch(feed_url)
         for item in items:
-            # First item is feed metadata.
-            if "id" not in item:
-                continue
-            tags = {str(t).lower() for t in item.get("tags", [])}
-            if wanted_tags and not (tags & wanted_tags):
+            if "id" not in item:  # first item is feed metadata
                 continue
             yield RawListing(
                 external_id=str(item["id"]),
@@ -51,6 +49,9 @@ class RemoteOKSource(Source):
         company = (item.get("company") or "").strip()
         position = (item.get("position") or "").strip()
         if not company or not position:
+            return None
+
+        if hard_reject(position, item.get("description"), item.get("location")):
             return None
 
         salary_min = item.get("salary_min")

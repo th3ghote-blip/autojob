@@ -1,0 +1,91 @@
+# AutoJob — operator profile.
+# Single source of truth for what counts as a match. The qualifier reads
+# this verbatim, so updating it here changes the whole pipeline's behavior
+# on the next run.
+
+identity:
+  name: Andrew
+  brand: AiAppGenius
+  base: "Costa del Sol, Spain (near Gibraltar)"
+  languages: [English, "Portuguese (Brazilian)", Spanish]
+
+geography:
+  remote_ok: true
+  on_site_ok_in:
+    - "Spain (Andalusia / Costa del Sol)"
+    - "Gibraltar"
+  on_site_elsewhere: false   # auto-skip jobs requiring on-site in any other city
+
+comp:
+  full_time_min_usd_year: 100000
+  consulting_day_rate_min_usd: 1000
+  retainer_floor_usd_month: 2500
+  below_floor_pitch: retainer  # comp under FT min -> pitch as paid add-on, don't skip
+
+# ─── Where the operator wins ────────────────────────────────────────────────
+# These are the materials the letter writer uses. Every claim here should be
+# defensible in a 30-min call.
+edges:
+  - "Solo full-stack — ships AI products in weeks, not months"
+  - "Base44 power-user — 3x the volume of direct Claude API work; rare in 2026"
+  - "Audio/voice analytics pipeline shipped: bulk audio ingest -> transcribe -> translate -> aggregated analytics dashboards (built a QA call transcriber in Base44)"
+  - "Built production Gmail outreach system with tracking pixel + click rewriting + reply parsing (this very job-search app)"
+  - "Designs UIs end-users actually adopt — friction-free, not just functional"
+  - "Tight feedback loops: ships, watches users, iterates in hours not weeks"
+  - "Customizes per-persona — adapts the product around the operator's workflow"
+  - "Workflow redesign, not feature bolt-on — compresses 10-step processes into 2"
+  - "Trilingual: English + BR Portuguese + Spanish — opens LATAM, Iberia, Brazil deals"
+  - "Past industries: teaching, trading, retail, entertainment — broad domain fluency"
+
+# ─── Roles ──────────────────────────────────────────────────────────────────
+# tier_1 = write a job-application letter
+# tier_2 = pitch a paid AiAppGenius engagement instead of a hire
+# reject = auto-skip, save tokens
+roles:
+  tier_1_apply:
+    - Forward Deployed Engineer (FDE)
+    - Applied / Customer / Implementation Engineer
+    - Solutions Architect (AI)
+    - AI Workflow Engineer
+    - Sales Engineer at AI / SaaS company
+    - AI integration / applied AI engineer
+    - Automation engineer
+    - Internal tools lead at small co
+    - Voice / audio analytics engineer
+    - Founder's Associate / Chief of Staff (technical, <30 people)
+    - Founding engineer at BOOTSTRAPPED / pre-seed / non-engineering-founder co
+    - Any role explicitly mentioning Base44 or "AI app builder"
+    - Any technical role at a LATAM / Brazil-focused company (Portuguese edge)
+
+  tier_2_pitch_consulting:
+    - Founding engineer at YC / venture-backed AI startup
+    - Senior full-stack at growth-stage AI company
+    - AI engineer at a mid-size company
+    - "We're hiring 3+ similar roles" — high signal of automation pain
+    - Sales-call / meeting analytics company hiring engineers (Gong, Chorus, Otter, Fathom, Granola adjacent)
+
+  reject:
+    - ML research / pretraining / model training
+    - MLOps infra platform engineering
+    - Distributed-systems / database internals
+    - Pure data science with no shipping/engineering output
+    - Staff / Principal / Lead engineer titles
+    - Junior / entry-level / "associate engineer"
+    - Office manager / admin / EA / pure operations
+    - On-site outside Spain or Gibraltar
+    - Government / clearance-required roles
+
+# ─── Pitch angle decision rules (qualifier reads top-down, first match wins) ─
+pitch_angle:
+  default: consulting   # used if no rule matches
+  rules:
+    - if: "role is in tier_2_pitch_consulting"
+      then: consulting
+    - if: "comp below FT min AND role would otherwise qualify"
+      then: retainer
+    - if: "role is in tier_1_apply AND comp >= FT min"
+      then: job_application
+    - if: "role mentions Base44 explicitly"
+      then: job_application
+    - if: "company is LATAM / Brazilian-market"
+      then: job_application

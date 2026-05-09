@@ -14,10 +14,10 @@ from typing import Any, Iterable
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from ..profile import hard_reject
 from .base import NormalizedJob, RawListing, Source
 
 API = "https://api.lever.co/v0/postings/{slug}?mode=json"
-AI_KEYWORDS = ("ai", "ml ", "machine learning", "llm", "applied", "research engineer")
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=8))
@@ -59,12 +59,11 @@ class LeverSource(Source):
         ) + (item.get("descriptionPlain") or "")
         if not text:
             return None
-        haystack = (text + " " + descr_html).lower()
-        if not any(k in haystack for k in AI_KEYWORDS):
-            return None
 
         cats = item.get("categories") or {}
         location = cats.get("location")
+        if hard_reject(text, descr_html, location):
+            return None
         commitment = (cats.get("commitment") or "").lower()
         employment = "contract" if "contract" in commitment else "full_time"
 
