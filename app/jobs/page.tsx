@@ -34,7 +34,8 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
   const status = searchParams.status || ''
   const source = searchParams.source || ''
   const minFit = parseInt(searchParams.min_fit || '0', 10) || 0
-  const hasEmail = searchParams.has_email === '1'
+  // Default ON — without an email there's nothing to send. Use '0' to browse no-email ATS roles.
+  const hasEmail = searchParams.has_email !== '0'
   const postedWithin = searchParams.posted_within ?? '7'  // default: last 7 days
   // Default ON for remote_only and hide_rejected. Use '0' to opt out.
   const remoteOnly = searchParams.remote_only !== '0'
@@ -144,7 +145,10 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
           />
         </Field>
         <Field label="Has email">
-          <input name="has_email" type="checkbox" value="1" defaultChecked={hasEmail} />
+          <select name="has_email" defaultValue={hasEmail ? '1' : '0'} className="border rounded px-2 py-1">
+            <option value="1">yes (default)</option>
+            <option value="0">show all</option>
+          </select>
         </Field>
         <Field label="Remote OK only">
           <select name="remote_only" defaultValue={remoteOnly ? '1' : '0'} className="border rounded px-2 py-1">
