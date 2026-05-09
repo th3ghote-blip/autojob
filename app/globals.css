@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  @apply bg-neutral-50 text-neutral-900 antialiased;
+}
+
+.prose-letter h1, .prose-letter h2, .prose-letter h3 {
+  @apply font-semibold;
+}
+.prose-letter p { @apply my-2 leading-relaxed; }
+.prose-letter a { @apply text-brand underline; }
+.prose-letter ul { @apply list-disc pl-5 my-2; }

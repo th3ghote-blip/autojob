@@ -1,0 +1,36 @@
+name: send
+# Sends every ready_to_send outreach up to the daily cap. Only enabled by
+# default after you've reviewed initial drafts at /pipeline. Disable the
+# `schedule:` block below to keep this manual-trigger only.
+
+on:
+  schedule:
+    - cron: '0 14 * * *'   # 14:00 UTC daily — adjust to your timezone
+  workflow_dispatch:
+    inputs:
+      max:
+        description: 'Max sends this run'
+        required: false
+        default: '20'
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GMAIL_USER: ${{ secrets.GMAIL_USER }}
+      GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: workers/requirements.txt
+      - run: pip install -r workers/requirements.txt
+      - name: Send queued
+        run: python -m workers.send --max ${{ inputs.max || 20 }}
