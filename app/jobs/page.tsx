@@ -36,19 +36,37 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
   const from = (page - 1) * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
 
+  // Resolve source slug -> id BEFORE the main query so we can filter on jobs.source_id
+  // (PostgREST embedded filters don't restrict the parent, only the join).
+  let sourceId: string | null = null
+  if (source) {
+    const { data: srow } = await sb.from('sources').select('id').eq('slug', source).maybeSingle()
+    sourceId = srow?.id || null
+    if (!sourceId) {
+      // Unknown slug — return zero rows rather than silently ignoring the filter.
+      return (
+        <Shell active="jobs">
+          <div className="bg-white border rounded p-6 text-sm text-neutral-500">
+            Unknown source: <code>{source}</code>. <Link href="/jobs" className="underline">Reset filters</Link>.
+          </div>
+        </Shell>
+      )
+    }
+  }
+
   let query = sb
     .from('jobs')
     .select(
       'id, title, location, remote, comp_min, comp_max, contact_email, posted_at, status, skip_reason, ' +
         'sources(slug, name), companies(name, fit_score), ' +
-        'outreach(stage, pitch_angle)',
+        'outreach(stage, pitch_angle, letters(id))',
       { count: 'exact' },
     )
     .order('created_at', { ascending: false })
     .range(from, to)
 
   if (status) query = query.eq('status', status)
-  if (source) query = query.eq('sources.slug', source)
+  if (sourceId) query = query.eq('source_id', sourceId)
   if (hasEmail) query = query.not('contact_email', 'is', null)
   if (q) query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`)
   // min_fit applies to companies.fit_score; supabase REST doesn't support a join-filter cleanly
@@ -172,7 +190,7 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
                 <td className="p-2 text-right whitespace-nowrap">
                   <DraftButton
                     jobId={r.id}
-                    alreadyDrafted={r.status === 'qualified' || (r.outreach && r.outreach.length > 0)}
+                    alreadyDrafted={hasLetter(r)}
                   />
                 </td>
               </tr>
@@ -220,6 +238,15 @@ function StatusPill({ status }: { status: string }) {
     status === 'archived'  ? 'bg-neutral-100 text-neutral-400' :
                               'bg-amber-100 text-amber-700'  // new
   return <span className={`text-[11px] px-2 py-0.5 rounded ${cls}`}>{status}</span>
+}
+
+function hasLetter(row: any): boolean {
+  if (!row?.outreach || row.outreach.length === 0) return false
+  return row.outreach.some(
+    (o: any) =>
+      (o.letters && o.letters.length > 0) ||
+      ['ready_to_send', 'sent', 'opened', 'replied', 'demo_booked', 'won'].includes(o.stage),
+  )
 }
 
 function fmtComp(lo: number | null, hi: number | null) {
