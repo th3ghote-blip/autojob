@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import Shell from '@/components/Shell'
+import DraftButton from '@/components/DraftButton'
 import { isOwner } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 
@@ -128,6 +129,7 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
               <th className="p-2">Comp</th>
               <th className="p-2">Email</th>
               <th className="p-2">Posted</th>
+              <th className="p-2"></th>
             </tr>
           </thead>
           <tbody>
@@ -167,10 +169,16 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
                 <td className="p-2 text-xs text-neutral-500">
                   {r.posted_at ? new Date(r.posted_at).toLocaleDateString() : '—'}
                 </td>
+                <td className="p-2 text-right whitespace-nowrap">
+                  <DraftButton
+                    jobId={r.id}
+                    alreadyDrafted={r.status === 'qualified' || (r.outreach && r.outreach.length > 0)}
+                  />
+                </td>
               </tr>
             ))}
             {items.length === 0 && (
-              <tr><td colSpan={9} className="p-8 text-center text-neutral-500">No jobs match these filters.</td></tr>
+              <tr><td colSpan={10} className="p-8 text-center text-neutral-500">No jobs match these filters.</td></tr>
             )}
           </tbody>
         </table>

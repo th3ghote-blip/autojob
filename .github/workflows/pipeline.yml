@@ -2,13 +2,18 @@ name: pipeline
 # Runs an hour after discover. Researches new companies, scores fit,
 # drafts letters for qualified jobs.
 
+# Cron disabled: the qualifier is now manual / on-demand only. The user picks
+# which jobs deserve a letter via the /jobs page; this workflow runs in
+# single-job mode (workflow_dispatch with job_id) or batch (with max).
 on:
-  schedule:
-    - cron: '0 8 * * *'
   workflow_dispatch:
     inputs:
+      job_id:
+        description: 'Run on one specific job UUID (skips qualifier gate, drafts letter directly)'
+        required: false
+        default: ''
       max:
-        description: 'Cap how many jobs to advance this run'
+        description: 'Batch mode: cap how many jobs to advance this run'
         required: false
         default: '20'
 
@@ -23,6 +28,7 @@ jobs:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       MAX_INPUT: ${{ github.event.inputs.max }}
+      JOB_INPUT: ${{ github.event.inputs.job_id }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -34,5 +40,9 @@ jobs:
       - name: Research + draft
         shell: bash
         run: |
-          MAX="${MAX_INPUT:-20}"
-          python -m workers.pipeline --max "$MAX"
+          if [ -n "$JOB_INPUT" ]; then
+            python -m workers.pipeline --job "$JOB_INPUT"
+          else
+            MAX="${MAX_INPUT:-20}"
+            python -m workers.pipeline --max "$MAX"
+          fi
