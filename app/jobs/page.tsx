@@ -12,10 +12,12 @@ type Search = {
   source?: string
   min_fit?: string
   has_email?: string
-  posted_within?: string  // '7' | '30' | '90' | 'any'
+  posted_within?: string
+  remote_only?: string
+  hide_rejected?: string
   q?: string
   page?: string
-  sort?: string  // 'posted' | 'created'
+  sort?: string
 }
 
 const PAGE_SIZE = 50
@@ -34,6 +36,9 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
   const minFit = parseInt(searchParams.min_fit || '0', 10) || 0
   const hasEmail = searchParams.has_email === '1'
   const postedWithin = searchParams.posted_within ?? '7'  // default: last 7 days
+  // Default ON for remote_only and hide_rejected. Use '0' to opt out.
+  const remoteOnly = searchParams.remote_only !== '0'
+  const hideRejected = searchParams.hide_rejected !== '0'
   const sort = searchParams.sort || 'posted'
   const q = (searchParams.q || '').trim()
   const page = Math.max(1, parseInt(searchParams.page || '1', 10) || 1)
@@ -89,6 +94,8 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
 
   let items = (rows || []) as any[]
   if (minFit > 0) items = items.filter((r) => (r.companies?.fit_score || 0) >= minFit)
+  if (remoteOnly) items = items.filter(isRemoteFriendly)
+  if (hideRejected) items = items.filter((r) => !matchesRejectPattern(r))
 
   // De-duplicate (company, title) — Greenhouse/Lever post the same role
   // across many cities as separate listings. Keep the most-recent variant
@@ -138,6 +145,18 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
         </Field>
         <Field label="Has email">
           <input name="has_email" type="checkbox" value="1" defaultChecked={hasEmail} />
+        </Field>
+        <Field label="Remote OK only">
+          <select name="remote_only" defaultValue={remoteOnly ? '1' : '0'} className="border rounded px-2 py-1">
+            <option value="1">yes (default)</option>
+            <option value="0">show all</option>
+          </select>
+        </Field>
+        <Field label="Hide reject titles">
+          <select name="hide_rejected" defaultValue={hideRejected ? '1' : '0'} className="border rounded px-2 py-1">
+            <option value="1">yes (default)</option>
+            <option value="0">show all</option>
+          </select>
         </Field>
         <Field label="Posted within">
           <select name="posted_within" defaultValue={postedWithin} className="border rounded px-2 py-1">
@@ -265,6 +284,39 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </label>
   )
+}
+
+// Locations we'd take + remote-friendly markers.
+const REMOTE_LOCATION_RE = /\b(remote|anywhere|worldwide|distributed|spain|gibraltar|andalusia|costa del sol|europe|emea|global|wfh|work from home)\b/i
+// On-site cities we will NOT take.
+const ONSITE_CITY_RE = /\b(new york|nyc|san francisco|sf bay|seattle|austin|boston|chicago|los angeles|la|denver|atlanta|portland|toronto|vancouver|london|berlin|paris|amsterdam|dublin|tel aviv|bangalore|tokyo|singapore|sydney|dubai)\b/i
+
+function isRemoteFriendly(r: any): boolean {
+  if (r.remote === true) return true
+  const loc = (r.location || '').toLowerCase()
+  if (!loc) return true  // empty location -> assume open
+  if (REMOTE_LOCATION_RE.test(loc)) return true
+  if (ONSITE_CITY_RE.test(loc)) return false
+  return true
+}
+
+// Title patterns that we don't want in the table — mirrors the Python hard_reject.
+const REJECT_TITLE_RE = [
+  /\b(jr\.?|junior|entry[- ]level|associate engineer|associate software engineer)\b/i,
+  /\b(staff|principal|distinguished)\s+(software|engineer|machine learning|ml)/i,
+  /\b(ml|machine learning)\s+(researcher|research scientist|research engineer)\b/i,
+  /\bpretraining\b/i,
+  /\bmlops\b.*\b(platform|infrastructure)\b/i,
+  /\b(data\s+scientist|quantitative\s+analyst|quant)\b/i,
+  /\b(office\s+manager|executive\s+assistant|receptionist|secretary|recruiter)\b/i,
+  /\b(security\s+clearance|government\s+clearance|TS\/?SCI)\b/i,
+  /\b(intern|internship)\b/i,
+  /\b(sales|business)\s+development\s+rep/i,
+  /\baccount\s+executive\b/i,
+]
+function matchesRejectPattern(r: any): boolean {
+  const t = r.title || ''
+  return REJECT_TITLE_RE.some((re) => re.test(t))
 }
 
 function dedupeByCompanyAndTitle(rows: any[]): any[] {
