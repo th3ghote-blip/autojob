@@ -7,6 +7,30 @@ import { supabaseAdmin } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
 
+// Decode HTML entities so descriptions stored as `&lt;p&gt;...` render as
+// real HTML, then return for dangerouslySetInnerHTML. We accept the small
+// XSS surface here because /jobs/[id] is owner-only.
+function cleanDescription(raw: string | null | undefined): string {
+  if (!raw) return '<p class="text-neutral-500">—</p>'
+  let s = raw
+  // Two-pass decode in case content was double-escaped.
+  for (let i = 0; i < 2; i++) {
+    s = s
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#x27;/g, "'")
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+  }
+  // If the result has no tags, wrap in <p> so newlines render.
+  if (!/<[a-z][\s\S]*?>/i.test(s)) {
+    s = s.split(/\n{2,}/).map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('')
+  }
+  return s
+}
+
 export default async function JobDetailPage({ params }: { params: { id: string } }) {
   if (!isOwner()) redirect('/login')
   const sb = supabaseAdmin()
@@ -58,7 +82,10 @@ export default async function JobDetailPage({ params }: { params: { id: string }
 
           <div className="bg-white border rounded p-4">
             <div className="text-xs uppercase tracking-wide text-neutral-500 mb-2">Job description</div>
-            <pre className="whitespace-pre-wrap text-sm leading-relaxed">{job.description || '—'}</pre>
+            <div
+              className="prose-letter text-sm leading-relaxed max-w-none"
+              dangerouslySetInnerHTML={{ __html: cleanDescription(job.description) }}
+            />
           </div>
         </section>
 

@@ -8,6 +8,7 @@ Configure companies in sources.config_json.companies, e.g.:
 """
 from __future__ import annotations
 
+import html
 import re
 from typing import Any, Iterable
 
@@ -71,7 +72,7 @@ class LeverSource(Source):
             external_id=raw.external_id,
             title=text,
             company_name=_humanize(item.get("company_slug")),
-            description=re.sub(r"<[^>]+>", " ", descr_html)[:8000],
+            description=re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html.unescape(descr_html))).strip()[:8000],
             location=location,
             remote=("remote" in (location or "").lower()),
             employment_type=employment,

@@ -11,6 +11,7 @@ Greenhouse permits unauthenticated polling at low frequencies.
 """
 from __future__ import annotations
 
+import html
 import re
 from typing import Any, Iterable
 
@@ -63,8 +64,11 @@ class GreenhouseSource(Source):
         company_slug = item.get("company_slug")
         company_name = (item.get("company") or {}).get("name") or _humanize(company_slug)
         location = (item.get("location") or {}).get("name")
-        # Greenhouse content is HTML — strip for storage; full HTML lives in job_raw.
-        description = re.sub(r"<[^>]+>", " ", item.get("content") or "").strip()
+        # Greenhouse content is HTML, often double-escaped (entities + tags).
+        # Decode entities first, then strip tags so we get clean plain text.
+        raw_content = html.unescape(item.get("content") or "")
+        description = re.sub(r"<[^>]+>", " ", raw_content)
+        description = re.sub(r"\s+", " ", description).strip()
 
         # Cheap pre-filter — skip obvious junk before LLM qualifier sees it.
         if hard_reject(title, description, location):
