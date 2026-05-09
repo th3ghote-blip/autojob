@@ -3,6 +3,7 @@ import Link from 'next/link'
 export default function Shell({ children, active }: { children: React.ReactNode; active?: string }) {
   const tabs = [
     { href: '/pipeline', label: 'Pipeline', key: 'pipeline' },
+    { href: '/jobs', label: 'Jobs', key: 'jobs' },
     { href: '/sources', label: 'Sources', key: 'sources' },
   ]
   return (
