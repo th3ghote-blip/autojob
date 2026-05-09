@@ -25,17 +25,17 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from ..profile import hard_reject
 from .base import NormalizedJob, RawListing, Source
 
-# Use /search_by_date so threads come back chronologically — /search ranks by
-# relevance, which surfaces 2018-era all-time-popular threads first. The
-# numericFilters floor narrows to the last ~12 months so we never walk old data.
+# Chronological search (not relevance) so the most recent monthly threads
+# come first. Floor at ~95 days because HN posts go stale fast — companies
+# either fill the role or the email goes dead within ~6-8 weeks.
 import time as _time
-_ONE_YEAR_AGO = int(_time.time()) - 60 * 60 * 24 * 365
+_FLOOR_SECS = int(_time.time()) - 60 * 60 * 24 * 95
 ALGOLIA_SEARCH = (
     "https://hn.algolia.com/api/v1/search_by_date"
     "?query=Ask+HN%3A+Who+is+hiring%3F"
     "&tags=story"
-    "&hitsPerPage=24"
-    f"&numericFilters=created_at_i%3E{_ONE_YEAR_AGO}"
+    "&hitsPerPage=8"
+    f"&numericFilters=created_at_i%3E{_FLOOR_SECS}"
 )
 ALGOLIA_ITEM = "https://hn.algolia.com/api/v1/items/{id}"
 
