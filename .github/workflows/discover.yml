@@ -1,7 +1,5 @@
 name: discover
 # Daily 07:00 UTC scrape of every enabled source.
-# Writes companies + jobs + job_raw rows to Supabase.
-# Workflow logs surface in /sources via worker_runs.github_run_url.
 
 on:
   schedule:
@@ -9,8 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       source:
-        description: 'Slug of a single source to run (optional)'
+        description: 'Slug of a single source to run (blank = all)'
         required: false
+        default: ''
 
 jobs:
   discover:
@@ -22,6 +21,7 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      SOURCE_INPUT: ${{ github.event.inputs.source }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -31,9 +31,10 @@ jobs:
           cache-dependency-path: workers/requirements.txt
       - run: pip install -r workers/requirements.txt
       - name: Run runner
+        shell: bash
         run: |
-          if [ -n "${{ inputs.source }}" ]; then
-            python -m workers.runner --source "${{ inputs.source }}"
+          if [ -n "$SOURCE_INPUT" ]; then
+            python -m workers.runner --source "$SOURCE_INPUT"
           else
             python -m workers.runner
           fi

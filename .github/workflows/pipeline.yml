@@ -1,7 +1,6 @@
 name: pipeline
-# Runs an hour after discover. For each new job: research the company,
-# score fit, and (if the company clears the threshold) draft the letter.
-# Stage advances to ready_to_send. Sending is a separate workflow.
+# Runs an hour after discover. Researches new companies, scores fit,
+# drafts letters for qualified jobs.
 
 on:
   schedule:
@@ -23,6 +22,7 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      MAX_INPUT: ${{ github.event.inputs.max }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -32,4 +32,7 @@ jobs:
           cache-dependency-path: workers/requirements.txt
       - run: pip install -r workers/requirements.txt
       - name: Research + draft
-        run: python -m workers.pipeline --max ${{ inputs.max || 20 }}
+        shell: bash
+        run: |
+          MAX="${MAX_INPUT:-20}"
+          python -m workers.pipeline --max "$MAX"

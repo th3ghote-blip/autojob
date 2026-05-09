@@ -1,11 +1,9 @@
 name: send
-# Sends every ready_to_send outreach up to the daily cap. Only enabled by
-# default after you've reviewed initial drafts at /pipeline. Disable the
-# `schedule:` block below to keep this manual-trigger only.
+# Sends every ready_to_send outreach up to the daily cap.
 
 on:
   schedule:
-    - cron: '0 14 * * *'   # 14:00 UTC daily — adjust to your timezone
+    - cron: '0 14 * * *'
   workflow_dispatch:
     inputs:
       max:
@@ -24,6 +22,7 @@ jobs:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       GMAIL_USER: ${{ secrets.GMAIL_USER }}
       GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+      MAX_INPUT: ${{ github.event.inputs.max }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -33,4 +32,7 @@ jobs:
           cache-dependency-path: workers/requirements.txt
       - run: pip install -r workers/requirements.txt
       - name: Send queued
-        run: python -m workers.send --max ${{ inputs.max || 20 }}
+        shell: bash
+        run: |
+          MAX="${MAX_INPUT:-20}"
+          python -m workers.send --max "$MAX"
