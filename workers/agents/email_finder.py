@@ -93,12 +93,48 @@ def _normalize_website(website_or_domain: str) -> str | None:
         s = "https://" + s
     try:
         u = urlparse(s)
-        host = (u.netloc or "").lower().lstrip("www.")
+        host = (u.netloc or "").lower()
+        if host.startswith("www."):
+            host = host[4:]
         if not host or "." not in host:
             return None
         return f"https://{host}"
     except Exception:
         return None
+
+
+# TLDs to try when we have no website but a company name. Ordered by likelihood
+# for AI-startup naming (in 2026, .ai is roughly tied with .com).
+_GUESS_TLDS = [".com", ".ai", ".io", ".co", ".net"]
+_NAME_NOISE_RE = re.compile(r"\s*(\(.*?\)|inc\.?|llc\.?|ltd\.?|corp\.?)\s*$", re.I)
+
+
+def _candidate_domains_from_name(name: str | None) -> list[str]:
+    """Heuristic: 'Sierra AI Inc.' -> ['https://sierraai.com', 'https://sierraai.ai', ...]."""
+    if not name:
+        return []
+    cleaned = _NAME_NOISE_RE.sub("", name).strip()
+    cleaned = re.sub(r"[^A-Za-z0-9]+", "", cleaned).lower()
+    if not cleaned or len(cleaned) < 3 or len(cleaned) > 30:
+        return []
+    return [f"https://{cleaned}{tld}" for tld in _GUESS_TLDS]
+
+
+def _probe_domain(url: str) -> bool:
+    """Return True if a domain serves a 2xx/3xx HTTP response within 6s."""
+    try:
+        with httpx.Client(
+            timeout=6.0,
+            follow_redirects=True,
+            headers={"User-Agent": "autojob-email-bot/1.0"},
+        ) as c:
+            r = c.head(url)
+            if r.status_code >= 400:
+                # Some sites reject HEAD; fall back to GET.
+                r = c.get(url)
+            return r.status_code < 400
+    except Exception:
+        return False
 
 
 def _email_priority(email: str) -> int:
@@ -140,13 +176,26 @@ def find_company_email(
 ) -> dict | None:
     """Try several pages on the company site; return best match dict or None.
 
-    Returns:
-        {"email": str, "source_url": str, "priority": int} or None
+    If no website/domain is provided, derives candidate domains from the
+    company name (`.com`, `.ai`, `.io`, `.co`, `.net`) and probes each until
+    one responds. Returns:
+        {"email": str, "source_url": str, "priority": int, "resolved_website": str}
+    or None.
     """
     base = _normalize_website(website or domain or "")
     if not base:
-        return None
-    company_host = urlparse(base).netloc.lstrip("www.")
+        # Heuristic fallback from the company name.
+        for guess in _candidate_domains_from_name(name):
+            if _probe_domain(guess):
+                base = guess
+                break
+        if not base:
+            return None
+
+    netloc = urlparse(base).netloc
+    if netloc.startswith("www."):
+        netloc = netloc[4:]
+    company_host = netloc
 
     candidates: list[tuple[int, str, str]] = []  # (priority, email, source_url)
 
@@ -176,4 +225,4 @@ def find_company_email(
         return None
     candidates.sort(key=lambda c: c[0])
     pri, email, src = candidates[0]
-    return {"email": email, "source_url": src, "priority": pri}
+    return {"email": email, "source_url": src, "priority": pri, "resolved_website": base}

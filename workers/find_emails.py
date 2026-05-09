@@ -84,15 +84,19 @@ def main() -> None:
             continue
 
         if result:
-            db().table("companies").update({
+            updates = {
                 "contact_email": result["email"],
                 "contact_email_source": result["source_url"],
                 "contact_email_priority": result["priority"],
                 "contact_email_checked_at": "now()",
-            }).eq("id", c["id"]).execute()
+            }
+            # If we resolved the website from a name guess, persist it.
+            if not c.get("website") and result.get("resolved_website"):
+                updates["website"] = result["resolved_website"]
+            db().table("companies").update(updates).eq("id", c["id"]).execute()
             n = _propagate_to_jobs(c["id"], result["email"])
             propagated_total += n
-            print(f"  ✓ {c['name']:30} -> {result['email']}  (+{n} jobs)")
+            print(f"  ✓ {c['name'][:30]:30} -> {result['email']}  (+{n} jobs)")
             found += 1
         else:
             db().table("companies").update({
