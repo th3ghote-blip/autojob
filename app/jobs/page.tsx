@@ -90,6 +90,11 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
   let items = (rows || []) as any[]
   if (minFit > 0) items = items.filter((r) => (r.companies?.fit_score || 0) >= minFit)
 
+  // De-duplicate (company, title) — Greenhouse/Lever post the same role
+  // across many cities as separate listings. Keep the most-recent variant
+  // and merge the others' locations + job_ids into a "variants" field.
+  items = dedupeByCompanyAndTitle(items)
+
   // List of sources for the filter dropdown.
   const { data: sources } = await sb.from('sources').select('slug, name').order('slug')
 
@@ -183,6 +188,14 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
                   <Link href={`/jobs/${r.id}`} className="text-brand hover:underline">
                     {r.title || '(untitled)'}
                   </Link>
+                  {r._variantCount > 1 && (
+                    <span
+                      className="ml-2 text-[10px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded"
+                      title={`Same role posted in: ${r._variantLocations.join(', ')}`}
+                    >
+                      ×{r._variantCount} locs
+                    </span>
+                  )}
                   {r.skip_reason && (
                     <div className="text-[11px] text-neutral-500 mt-0.5 line-clamp-2">
                       ↳ {r.skip_reason}
@@ -252,6 +265,48 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </label>
   )
+}
+
+function dedupeByCompanyAndTitle(rows: any[]): any[] {
+  const groups = new Map<string, any[]>()
+  for (const r of rows) {
+    const company = (r.companies?.name || '').trim().toLowerCase()
+    const title = (r.title || '').trim().toLowerCase()
+    const key = `${company}::${title}`
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push(r)
+  }
+  const merged: any[] = []
+  for (const variants of groups.values()) {
+    if (variants.length === 1) {
+      merged.push(variants[0])
+      continue
+    }
+    // Sort newest first; keep the first as primary.
+    variants.sort((a, b) => {
+      const da = a.posted_at ? new Date(a.posted_at).getTime() : 0
+      const db = b.posted_at ? new Date(b.posted_at).getTime() : 0
+      return db - da
+    })
+    const primary = variants[0]
+    const locs = Array.from(
+      new Set(
+        variants
+          .map((v) => (v.location || '').trim())
+          .filter(Boolean),
+      ),
+    )
+    primary._variantCount = variants.length
+    primary._variantLocations = locs
+    merged.push(primary)
+  }
+  // Preserve original (newest-first) ordering of the kept primaries.
+  merged.sort((a, b) => {
+    const da = a.posted_at ? new Date(a.posted_at).getTime() : 0
+    const db = b.posted_at ? new Date(b.posted_at).getTime() : 0
+    return db - da
+  })
+  return merged
 }
 
 function ApplyMethodBadge({ job }: { job: any }) {
