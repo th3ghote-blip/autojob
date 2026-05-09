@@ -19,15 +19,28 @@ from .db import db
 
 
 def _candidates(limit: int, recheck: bool) -> list[dict]:
-    q = (
-        db().table("companies")
-        .select("id, name, domain, website, contact_email, contact_email_checked_at")
-        .order("contact_email_checked_at", desc=False, nulls_first=True)
-        .limit(limit)
-    )
+    """Return companies to scan. Prefers never-checked rows first.
+
+    With recheck=False (default): only rows that have never been checked AND
+    don't already have an email.
+    With recheck=True: all rows ordered oldest-checked first.
+    """
     if not recheck:
-        q = q.is_("contact_email", None)
-    return q.execute().data or []
+        return (
+            db().table("companies")
+            .select("id, name, domain, website")
+            .is_("contact_email", "null")
+            .is_("contact_email_checked_at", "null")
+            .limit(limit)
+            .execute()
+        ).data or []
+    return (
+        db().table("companies")
+        .select("id, name, domain, website")
+        .order("contact_email_checked_at", desc=False)
+        .limit(limit)
+        .execute()
+    ).data or []
 
 
 def _propagate_to_jobs(company_id: str, email: str) -> int:
