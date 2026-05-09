@@ -25,9 +25,17 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from ..profile import hard_reject
 from .base import NormalizedJob, RawListing, Source
 
+# Use /search_by_date so threads come back chronologically — /search ranks by
+# relevance, which surfaces 2018-era all-time-popular threads first. The
+# numericFilters floor narrows to the last ~12 months so we never walk old data.
+import time as _time
+_ONE_YEAR_AGO = int(_time.time()) - 60 * 60 * 24 * 365
 ALGOLIA_SEARCH = (
-    "https://hn.algolia.com/api/v1/search"
-    "?query=Ask+HN%3A+Who+is+hiring%3F&tags=story&hitsPerPage=12"
+    "https://hn.algolia.com/api/v1/search_by_date"
+    "?query=Ask+HN%3A+Who+is+hiring%3F"
+    "&tags=story"
+    "&hitsPerPage=24"
+    f"&numericFilters=created_at_i%3E{_ONE_YEAR_AGO}"
 )
 ALGOLIA_ITEM = "https://hn.algolia.com/api/v1/items/{id}"
 
