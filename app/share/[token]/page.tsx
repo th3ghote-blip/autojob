@@ -3,6 +3,8 @@ import { marked } from 'marked'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const fetchCache = 'force-no-store'
 
 const STEP_META: Record<string, { label: string; emoji: string; gradient: string }> = {
   source_discovered: { label: 'Found your job posting',     emoji: '🔎', gradient: 'from-violet-500 to-fuchsia-500' },
