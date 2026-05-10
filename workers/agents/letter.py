@@ -139,17 +139,38 @@ def draft_letter(outreach_id: str) -> dict[str, Any]:
 
     db().table("outreach").update({"stage": "ready_to_send"}).eq("id", outreach_id).execute()
 
-    log_step(
-        outreach_id,
-        kind="letter_drafted",
-        title=f"Drafted {angle.replace('_', ' ')} email v{version}",
-        summary=f"**Subject:** {subject}\n\n{body_md}",
-        inputs={"angle": angle, "company": company['name'], "role": job['title']},
-        outputs={"subject": subject, "version": version},
-        model=result["model"],
-        tokens_used=result["tokens_in"] + result["tokens_out"],
-        duration_ms=int((time.time() - started) * 1000),
-    )
+    # Idempotent step logging: if a letter_drafted step already exists for this
+    # outreach, update it in place. Re-drafts shouldn't pollute the trail with
+    # multiple "Drafted letter vN" rows — recruiters only need to see the
+    # latest. The version number in the title still reflects the actual count.
+    existing = (
+        db().table("process_steps").select("id")
+        .eq("outreach_id", outreach_id).eq("kind", "letter_drafted").limit(1).execute()
+    ).data
+    payload = {
+        "title": f"Drafted {angle.replace('_', ' ')} email v{version}",
+        "summary": f"**Subject:** {subject}\n\n{body_md}",
+        "input_redacted_json": {"angle": angle, "company": company['name'], "role": job['title']},
+        "output_redacted_json": {"subject": subject, "version": version},
+        "model": result["model"],
+        "tokens_used": result["tokens_in"] + result["tokens_out"],
+        "duration_ms": int((time.time() - started) * 1000),
+        "occurred_at": "now()",
+    }
+    if existing:
+        db().table("process_steps").update(payload).eq("id", existing[0]["id"]).execute()
+    else:
+        log_step(
+            outreach_id,
+            kind="letter_drafted",
+            title=payload["title"],
+            summary=payload["summary"],
+            inputs=payload["input_redacted_json"],
+            outputs=payload["output_redacted_json"],
+            model=payload["model"],
+            tokens_used=payload["tokens_used"],
+            duration_ms=payload["duration_ms"],
+        )
 
     return letter
 

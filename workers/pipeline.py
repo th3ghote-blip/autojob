@@ -54,46 +54,60 @@ def _ensure_outreach(job_id: str, company_id: str) -> str:
 
 
 def draft_one(job_id: str) -> dict:
-    """Single-job flow: research + letter, regardless of qualifier verdict."""
+    """Single-job flow: research + letter, regardless of qualifier verdict.
+
+    Idempotent on re-draft: if the outreach already has letters, we skip the
+    source_discovered + qualifier steps (no duplicate trail entries) and just
+    produce a new letter version.
+    """
     started = time.time()
     job = db().table("jobs").select("*, companies(*)").eq("id", job_id).single().execute().data
     company_id = job["company_id"]
     outreach_id = _ensure_outreach(job_id, company_id)
 
-    log_step(outreach_id, kind="source_discovered",
-             title=f"Selected by user: {job['title']}",
-             summary=f"User clicked Draft from /jobs.\n\nTitle: {job['title']}\nSource URL: {job.get('url') or '—'}",
-             inputs={"job_id": job_id, "manual": True},
-             outputs={"posted_at": job.get("posted_at")})
+    # Has this outreach already produced any letters? If so, this is a re-draft.
+    existing_letters = (
+        db().table("letters").select("id", count="exact", head=True)
+        .eq("outreach_id", outreach_id).execute()
+    )
+    is_redraft = (existing_letters.count or 0) > 0
 
-    # Light qualifier pass to set pitch_angle (no gating).
-    try:
-        decision = qualify_job(job_id, outreach_id=outreach_id)
-        pitch_angle = decision.get("pitch_angle") or "consulting"
-    except Exception as e:  # noqa: BLE001
-        print(f"  ⚠ qualifier failed (proceeding anyway): {e}")
-        pitch_angle = "consulting"
+    if not is_redraft:
+        # First-time flow: full trail.
+        log_step(outreach_id, kind="source_discovered",
+                 title=f"Selected by user: {job['title']}",
+                 summary=f"User clicked Draft from /jobs.\n\nTitle: {job['title']}\nSource URL: {job.get('url') or '—'}",
+                 inputs={"job_id": job_id, "manual": True},
+                 outputs={"posted_at": job.get("posted_at")})
 
-    db().table("outreach").update({
-        "pitch_angle": pitch_angle,
-        "stage": "researching",
-    }).eq("id", outreach_id).execute()
-
-    # Research the company (always, in single-job mode).
-    company = db().table("companies").select("last_researched_at").eq("id", company_id).single().execute().data
-    if not company.get("last_researched_at"):
         try:
-            research_company(company_id, outreach_id=outreach_id)
+            decision = qualify_job(job_id, outreach_id=outreach_id)
+            pitch_angle = decision.get("pitch_angle") or "consulting"
         except Exception as e:  # noqa: BLE001
-            log_step(outreach_id, kind="company_researched",
-                     title="Company research failed (proceeding anyway)",
-                     summary=f"Error: {e}", inputs={}, outputs={})
+            print(f"  ⚠ qualifier failed (proceeding anyway): {e}")
+            pitch_angle = "consulting"
 
-    # Draft the letter.
+        db().table("outreach").update({
+            "pitch_angle": pitch_angle,
+            "stage": "researching",
+        }).eq("id", outreach_id).execute()
+
+        company = db().table("companies").select("last_researched_at").eq("id", company_id).single().execute().data
+        if not company.get("last_researched_at"):
+            try:
+                research_company(company_id, outreach_id=outreach_id)
+            except Exception as e:  # noqa: BLE001
+                log_step(outreach_id, kind="company_researched",
+                         title="Company research failed (proceeding anyway)",
+                         summary=f"Error: {e}", inputs={}, outputs={})
+    else:
+        print(f"  re-draft for outreach {outreach_id} — skipping source/qualifier/research trail entries")
+
+    # Draft the letter (always — produces v1 or v(N+1)).
     draft_letter(outreach_id)
     db().table("jobs").update({"status": "qualified"}).eq("id", job_id).execute()
     print(f"drafted letter for outreach {outreach_id} in {int((time.time() - started) * 1000)}ms")
-    return {"outreach_id": outreach_id}
+    return {"outreach_id": outreach_id, "redraft": is_redraft}
 
 
 def batch_score(max_jobs: int) -> None:
