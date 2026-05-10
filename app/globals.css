@@ -3,19 +3,33 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
+}
+
+html, body {
+  background: #020617;
 }
 
 body {
-  @apply bg-neutral-50 text-neutral-900 antialiased;
+  @apply text-slate-200 antialiased;
+  background:
+    radial-gradient(ellipse at top, rgba(99,102,241,0.10) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom right, rgba(236,72,153,0.06) 0%, transparent 50%),
+    #0a0f1f;
+  background-attachment: fixed;
+  min-height: 100vh;
 }
 
+/* Letter prose (used in /jobs/[id]) */
 .prose-letter h1, .prose-letter h2, .prose-letter h3 {
-  @apply font-semibold;
+  @apply font-semibold text-slate-100;
 }
-.prose-letter p { @apply my-2 leading-relaxed; }
-.prose-letter a { @apply text-brand underline; }
-.prose-letter ul { @apply list-disc pl-5 my-2; }
+.prose-letter p { @apply my-2 leading-relaxed text-slate-300; }
+.prose-letter strong { @apply text-slate-100 font-semibold; }
+.prose-letter a { @apply text-violet-400 underline underline-offset-2 hover:text-violet-300; }
+.prose-letter ul { @apply list-disc pl-5 my-2 space-y-1 text-slate-300; }
+.prose-letter ol { @apply list-decimal pl-5 my-2 space-y-1 text-slate-300; }
+.prose-letter code { @apply text-violet-300 bg-white/[0.06] px-1.5 py-0.5 rounded text-[12px]; }
 
 /* Share-page dark prose. */
 .prose-share h1, .prose-share h2, .prose-share h3 {
@@ -28,3 +42,12 @@ body {
 .prose-share ol { @apply list-decimal pl-5 my-2 space-y-1; }
 .prose-share code { @apply text-violet-300 bg-white/[0.05] px-1.5 py-0.5 rounded text-[12px]; }
 .prose-share blockquote { @apply border-l-2 border-violet-500/40 pl-4 italic text-slate-300 my-3; }
+
+/* Form controls — dark friendly defaults */
+input[type="text"], input[type="search"], input[type="password"], input[type="number"], input[type="email"],
+select, textarea {
+  @apply bg-white/[0.04] border border-white/10 text-slate-100 placeholder-slate-500;
+}
+input:focus, select:focus, textarea:focus {
+  @apply outline-none ring-1 ring-violet-500/40 border-violet-500/40;
+}

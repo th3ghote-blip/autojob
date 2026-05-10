@@ -63,19 +63,19 @@ export default async function JobDetailPage({ params }: { params: { id: string }
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <section className="lg:col-span-2 space-y-4">
           <div>
-            <a href={job.url || '#'} target="_blank" className="text-xs text-neutral-500 hover:underline">
+            <a href={job.url || '#'} target="_blank" className="text-xs text-slate-500 hover:text-violet-400 hover:underline font-mono">
               {job.sources?.slug} · {job.url}
             </a>
-            <h1 className="text-2xl font-semibold mt-1">{job.title}</h1>
-            <div className="text-sm text-neutral-600 mt-1">
-              {job.companies?.name} · {job.location || (job.remote ? 'Remote' : '—')}
+            <h1 className="text-2xl font-semibold mt-1 text-slate-100 tracking-tight">{job.title}</h1>
+            <div className="text-sm text-slate-400 mt-1">
+              <span className="text-slate-200">{job.companies?.name}</span> · {job.location || (job.remote ? 'Remote' : '—')}
             </div>
           </div>
 
           {latestLetter ? (
-            <div className="bg-white border rounded p-4">
-              <div className="text-xs uppercase tracking-wide text-neutral-500 mb-1">Letter v{latestLetter.version}</div>
-              <div className="font-medium mb-3">{latestLetter.subject}</div>
+            <div className="bg-white/[0.03] border border-white/10 rounded-xl p-5">
+              <div className="text-[10px] uppercase tracking-[0.15em] text-violet-300 mb-1 font-semibold">Letter v{latestLetter.version}</div>
+              <div className="font-medium text-slate-100 mb-3">{latestLetter.subject}</div>
               <div
                 className="prose-letter text-sm"
                 dangerouslySetInnerHTML={{ __html: marked.parse(previewBodyMd || '') as string }}
@@ -89,11 +89,11 @@ export default async function JobDetailPage({ params }: { params: { id: string }
               />
             </div>
           ) : (
-            <div className="bg-white border rounded p-4 text-sm text-neutral-500">No letter drafted yet.</div>
+            <div className="bg-white/[0.03] border border-white/10 rounded-xl p-5 text-sm text-slate-500">No letter drafted yet.</div>
           )}
 
-          <div className="bg-white border rounded p-4">
-            <div className="text-xs uppercase tracking-wide text-neutral-500 mb-2">Job description</div>
+          <div className="bg-white/[0.03] border border-white/10 rounded-xl p-5">
+            <div className="text-[10px] uppercase tracking-[0.15em] text-violet-300 mb-3 font-semibold">Job description</div>
             <div
               className="prose-letter text-sm leading-relaxed max-w-none"
               dangerouslySetInnerHTML={{ __html: cleanDescription(job.description) }}
@@ -102,24 +102,26 @@ export default async function JobDetailPage({ params }: { params: { id: string }
         </section>
 
         <aside className="space-y-4">
-          <div className="bg-white border rounded p-4">
-            <div className="text-xs uppercase tracking-wide text-neutral-500 mb-2">Pipeline</div>
-            <div>Stage: <span className="font-medium">{outreach?.stage || '—'}</span></div>
-            <div>Pitch: {outreach?.pitch_angle || '—'}</div>
-            <div>Contact: {job.contact_email || '—'}</div>
-            <div>Fit: {job.companies?.fit_score ?? '—'}</div>
+          <div className="bg-white/[0.03] border border-white/10 rounded-xl p-5">
+            <div className="text-[10px] uppercase tracking-[0.15em] text-violet-300 mb-3 font-semibold">Pipeline</div>
+            <div className="text-sm space-y-1.5">
+              <div className="text-slate-400">Stage: <span className="text-slate-100 font-medium">{outreach?.stage || '—'}</span></div>
+              <div className="text-slate-400">Pitch: <span className="text-slate-200">{outreach?.pitch_angle || '—'}</span></div>
+              <div className="text-slate-400">Contact: <span className="text-slate-200">{job.contact_email || '—'}</span></div>
+              <div className="text-slate-400">Fit: <span className="text-emerald-400 font-medium">{job.fit_score ?? '—'}</span></div>
+            </div>
           </div>
 
-          <div className="bg-white border rounded p-4">
-            <div className="text-xs uppercase tracking-wide text-neutral-500 mb-2">AI process trail</div>
-            <ol className="space-y-2 text-sm">
+          <div className="bg-white/[0.03] border border-white/10 rounded-xl p-5">
+            <div className="text-[10px] uppercase tracking-[0.15em] text-violet-300 mb-3 font-semibold">AI process trail</div>
+            <ol className="space-y-3 text-sm">
               {(steps || []).map((s: any) => (
-                <li key={s.id} className="border-l-2 border-brand/40 pl-3">
-                  <div className="font-medium">{s.title}</div>
-                  <div className="text-xs text-neutral-500">{new Date(s.occurred_at).toLocaleString()} · {s.kind}</div>
+                <li key={s.id} className="border-l-2 border-violet-500/40 pl-3">
+                  <div className="font-medium text-slate-100">{s.title}</div>
+                  <div className="text-xs text-slate-500">{new Date(s.occurred_at).toLocaleString()} · {s.kind}</div>
                 </li>
               ))}
-              {(!steps || steps.length === 0) && <li className="text-neutral-500">No steps yet.</li>}
+              {(!steps || steps.length === 0) && <li className="text-slate-500">No steps yet.</li>}
             </ol>
           </div>
         </aside>

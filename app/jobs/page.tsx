@@ -112,26 +112,26 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
 
   return (
     <Shell active="jobs">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-semibold">Jobs</h1>
-        <div className="text-sm text-neutral-500 flex gap-3">
-          <span>total: <b>{stats.total}</b></span>
-          <span>new: <b>{stats.new}</b></span>
-          <span className="text-emerald-600">qualified: <b>{stats.qualified}</b></span>
-          <span className="text-neutral-400">skipped: <b>{stats.skipped}</b></span>
+      <div className="flex items-center justify-between mb-5">
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-100">Jobs</h1>
+        <div className="text-sm text-slate-400 flex gap-4">
+          <span>total: <b className="text-slate-100">{stats.total}</b></span>
+          <span>new: <b className="text-slate-100">{stats.new}</b></span>
+          <span className="text-emerald-400">qualified: <b>{stats.qualified}</b></span>
+          <span className="text-slate-500">skipped: <b>{stats.skipped}</b></span>
         </div>
       </div>
 
-      <form className="bg-white border rounded p-3 mb-4 flex flex-wrap gap-3 items-end text-sm">
+      <form className="bg-white/[0.03] border border-white/10 rounded-xl p-3 mb-4 flex flex-wrap gap-3 items-end text-sm">
         <Field label="Status">
-          <select name="status" defaultValue={status} className="border rounded px-2 py-1">
+          <select name="status" defaultValue={status} className="rounded-md px-2 py-1">
             {STATUS_OPTIONS.map((s) => (
               <option key={s} value={s}>{s || 'all'}</option>
             ))}
           </select>
         </Field>
         <Field label="Source">
-          <select name="source" defaultValue={source} className="border rounded px-2 py-1">
+          <select name="source" defaultValue={source} className="rounded-md px-2 py-1">
             <option value="">all</option>
             {(sources || []).map((s: any) => (
               <option key={s.slug} value={s.slug}>{s.slug}</option>
@@ -149,25 +149,25 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
           />
         </Field>
         <Field label="Has email">
-          <select name="has_email" defaultValue={hasEmail ? '1' : '0'} className="border rounded px-2 py-1">
+          <select name="has_email" defaultValue={hasEmail ? '1' : '0'} className="rounded-md px-2 py-1">
             <option value="1">yes (default)</option>
             <option value="0">show all</option>
           </select>
         </Field>
         <Field label="Remote OK only">
-          <select name="remote_only" defaultValue={remoteOnly ? '1' : '0'} className="border rounded px-2 py-1">
+          <select name="remote_only" defaultValue={remoteOnly ? '1' : '0'} className="rounded-md px-2 py-1">
             <option value="1">yes (default)</option>
             <option value="0">show all</option>
           </select>
         </Field>
         <Field label="Hide reject titles">
-          <select name="hide_rejected" defaultValue={hideRejected ? '1' : '0'} className="border rounded px-2 py-1">
+          <select name="hide_rejected" defaultValue={hideRejected ? '1' : '0'} className="rounded-md px-2 py-1">
             <option value="1">yes (default)</option>
             <option value="0">show all</option>
           </select>
         </Field>
         <Field label="Posted within">
-          <select name="posted_within" defaultValue={postedWithin} className="border rounded px-2 py-1">
+          <select name="posted_within" defaultValue={postedWithin} className="rounded-md px-2 py-1">
             <option value="7">7 days</option>
             <option value="30">30 days</option>
             <option value="90">90 days</option>
@@ -175,7 +175,7 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
           </select>
         </Field>
         <Field label="Sort">
-          <select name="sort" defaultValue={sort} className="border rounded px-2 py-1">
+          <select name="sort" defaultValue={sort} className="rounded-md px-2 py-1">
             <option value="fit">fit (qualifier)</option>
             <option value="posted">posted_at</option>
             <option value="created">created_at</option>
@@ -187,16 +187,16 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
             type="search"
             defaultValue={q}
             placeholder="title or description"
-            className="border rounded px-2 py-1 w-56"
+            className="rounded-md px-2 py-1 w-56"
           />
         </Field>
-        <button className="bg-brand text-white rounded px-3 py-1 font-medium">Apply</button>
-        <Link href="/jobs" className="text-neutral-500 underline px-2">reset</Link>
+        <button className="bg-gradient-to-r from-violet-500 to-pink-500 text-white rounded-md px-4 py-1 font-medium shadow-lg shadow-violet-900/30 hover:opacity-90">Apply</button>
+        <Link href="/jobs" className="text-slate-500 hover:text-slate-300 underline px-2">reset</Link>
       </form>
 
-      <div className="bg-white border rounded overflow-x-auto">
+      <div className="bg-white/[0.03] border border-white/10 rounded-xl overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-neutral-50 sticky top-0">
+          <thead className="bg-white/[0.04] border-b border-white/10 text-slate-300">
             <tr className="text-left">
               <th className="p-2">Title</th>
               <th className="p-2">Company</th>
@@ -211,27 +211,27 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
           </thead>
           <tbody>
             {items.map((r: any) => (
-              <tr key={r.id} className="border-t hover:bg-neutral-50">
+              <tr key={r.id} className="border-t border-white/5 hover:bg-white/[0.04] transition-colors">
                 <td className="p-2 max-w-md">
-                  <Link href={`/jobs/${r.id}`} className="text-brand hover:underline">
+                  <Link href={`/jobs/${r.id}`} className="text-violet-400 hover:text-violet-300 hover:underline">
                     {r.title || '(untitled)'}
                   </Link>
                   {r._variantCount > 1 && (
                     <span
-                      className="ml-2 text-[10px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded"
+                      className="ml-2 text-[10px] bg-white/[0.06] text-slate-400 px-1.5 py-0.5 rounded"
                       title={`Same role posted in: ${r._variantLocations.join(', ')}`}
                     >
                       ×{r._variantCount} locs
                     </span>
                   )}
                   {r.skip_reason && (
-                    <div className="text-[11px] text-neutral-500 mt-0.5 line-clamp-2">
+                    <div className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">
                       ↳ {r.skip_reason}
                     </div>
                   )}
                 </td>
-                <td className="p-2">{r.companies?.name || '—'}</td>
-                <td className="p-2 text-xs font-mono text-neutral-500">{r.sources?.slug}</td>
+                <td className="p-2 text-slate-300">{r.companies?.name || '—'}</td>
+                <td className="p-2 text-xs font-mono text-slate-500">{r.sources?.slug}</td>
                 <td className="p-2">
                   <ApplyMethodBadge job={r} />
                 </td>
@@ -242,25 +242,25 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
                   {r.fit_score != null ? (
                     <div title={r.qualifier_reasoning || ''} className="cursor-help">
                       <span className={
-                        r.fit_score >= 70 ? 'text-emerald-600 font-bold' :
-                        r.fit_score >= 50 ? 'text-emerald-700' :
-                        r.fit_score >= 30 ? 'text-neutral-600' :
-                        'text-neutral-400'
+                        r.fit_score >= 70 ? 'text-emerald-400 font-bold' :
+                        r.fit_score >= 50 ? 'text-emerald-500' :
+                        r.fit_score >= 30 ? 'text-slate-400' :
+                        'text-slate-600'
                       }>
                         {r.fit_score}
                       </span>
                       {r.realism_tier && r.realism_tier !== 'reject' && (
-                        <div className="text-[10px] text-neutral-500 leading-tight">
+                        <div className="text-[10px] text-violet-400 leading-tight">
                           {r.realism_tier.replace('tier_1_apply','tier 1').replace('tier_2_consulting','tier 2')}
                         </div>
                       )}
                     </div>
-                  ) : <span className="text-neutral-400">—</span>}
+                  ) : <span className="text-slate-600">—</span>}
                 </td>
-                <td className="p-2 text-xs">
+                <td className="p-2 text-xs text-slate-400">
                   {fmtComp(r.comp_min, r.comp_max)}
                 </td>
-                <td className="p-2 text-xs text-neutral-500">
+                <td className="p-2 text-xs text-slate-500">
                   {r.posted_at ? new Date(r.posted_at).toLocaleDateString() : '—'}
                 </td>
                 <td className="p-2 text-right whitespace-nowrap">
@@ -272,7 +272,7 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
               </tr>
             ))}
             {items.length === 0 && (
-              <tr><td colSpan={9} className="p-8 text-center text-neutral-500">No jobs match these filters.</td></tr>
+              <tr><td colSpan={9} className="p-8 text-center text-slate-500">No jobs match these filters.</td></tr>
             )}
           </tbody>
         </table>
@@ -389,15 +389,15 @@ function dedupeByCompanyAndTitle(rows: any[], sort: string = 'fit'): any[] {
 function SortableTh({ label, field, current, search }: { label: string; field: string; current: string; search: Search }) {
   const params = new URLSearchParams(search as any)
   params.set('sort', field)
-  params.delete('page')  // reset to page 1 on sort change
+  params.delete('page')
   const isActive = current === field
   return (
-    <th className="p-2">
+    <th className="p-2 text-left">
       <a
         href={`/jobs?${params.toString()}`}
         className={
-          'inline-flex items-center gap-1 hover:text-brand ' +
-          (isActive ? 'text-brand font-semibold' : 'text-neutral-700')
+          'inline-flex items-center gap-1 transition-colors ' +
+          (isActive ? 'text-violet-400 font-semibold' : 'text-slate-300 hover:text-violet-400')
         }
       >
         {label}{isActive && ' ↓'}
@@ -410,34 +410,34 @@ function ApplyMethodBadge({ job }: { job: any }) {
   const kind = job?.sources?.kind
   if (job.contact_email) {
     return (
-      <span title={`email: ${job.contact_email}`} className="text-[11px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">
+      <span title={`email: ${job.contact_email}`} className="text-[11px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded">
         📧 email
       </span>
     )
   }
   if (kind === 'ats') {
     return (
-      <span title="ATS apply form (no email)" className="text-[11px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+      <span title="ATS apply form (no email)" className="text-[11px] bg-sky-500/15 text-sky-300 border border-sky-500/20 px-2 py-0.5 rounded">
         🔗 form
       </span>
     )
   }
   if (job.url) {
     return (
-      <span title="Apply URL" className="text-[11px] bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded">
+      <span title="Apply URL" className="text-[11px] bg-white/[0.06] text-slate-400 px-2 py-0.5 rounded">
         🌐 url
       </span>
     )
   }
-  return <span className="text-[11px] text-neutral-400">—</span>
+  return <span className="text-[11px] text-slate-600">—</span>
 }
 
 function StatusPill({ status }: { status: string }) {
   const cls =
-    status === 'qualified' ? 'bg-emerald-100 text-emerald-700' :
-    status === 'skipped'   ? 'bg-neutral-100 text-neutral-500' :
-    status === 'archived'  ? 'bg-neutral-100 text-neutral-400' :
-                              'bg-amber-100 text-amber-700'  // new
+    status === 'qualified' ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/20' :
+    status === 'skipped'   ? 'bg-white/[0.04] text-slate-500' :
+    status === 'archived'  ? 'bg-white/[0.04] text-slate-600' :
+                              'bg-amber-500/15 text-amber-300 border border-amber-500/20'  // new
   return <span className={`text-[11px] px-2 py-0.5 rounded ${cls}`}>{status}</span>
 }
 
@@ -466,10 +466,10 @@ function Pager({ page, total, search }: { page: number; total: number; search: S
   }
   return (
     <div className="flex items-center justify-between mt-3 text-sm">
-      <div className="text-neutral-500">Page {page} of {pages} · {total} total</div>
+      <div className="text-slate-500">Page {page} of {pages} · {total} total</div>
       <div className="flex gap-2">
-        {page > 1 && <Link href={url(page - 1)} className="px-3 py-1 border rounded">← prev</Link>}
-        {page < pages && <Link href={url(page + 1)} className="px-3 py-1 border rounded">next →</Link>}
+        {page > 1 && <Link href={url(page - 1)} className="px-3 py-1 border border-white/10 rounded-md text-slate-300 hover:bg-white/[0.04]">← prev</Link>}
+        {page < pages && <Link href={url(page + 1)} className="px-3 py-1 border border-white/10 rounded-md text-slate-300 hover:bg-white/[0.04]">next →</Link>}
       </div>
     </div>
   )

@@ -54,9 +54,9 @@ export default async function PipelinePage() {
 
   return (
     <Shell active="pipeline">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-semibold">Pipeline</h1>
-        <p className="text-sm text-neutral-500">{cards.length} active</p>
+      <div className="flex items-center justify-between mb-5">
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-100">Pipeline</h1>
+        <p className="text-sm text-slate-400">{cards.length} active</p>
       </div>
       <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-3">
         {STAGES.map((stage) => (
@@ -67,12 +67,25 @@ export default async function PipelinePage() {
   )
 }
 
+const STAGE_GRADIENTS: Record<string, string> = {
+  new:           'from-amber-500/30 to-orange-500/30',
+  researching:   'from-sky-500/30 to-blue-500/30',
+  drafting:      'from-rose-500/30 to-pink-500/30',
+  ready_to_send: 'from-violet-500/40 to-purple-500/40',
+  sent:          'from-emerald-500/30 to-teal-500/30',
+  opened:        'from-emerald-500/40 to-green-500/40',
+  replied:       'from-cyan-500/40 to-emerald-500/40',
+  demo_booked:   'from-fuchsia-500/40 to-pink-500/40',
+  won:           'from-yellow-400/40 to-amber-500/40',
+}
+
 function Column({ stage, cards }: { stage: string; cards: Card[] }) {
+  const grad = STAGE_GRADIENTS[stage] || 'from-slate-500/20 to-slate-700/20'
   return (
-    <div className="bg-neutral-100 rounded p-2 min-h-[60vh]">
-      <div className="flex items-center justify-between text-xs uppercase font-semibold tracking-wide text-neutral-500 px-1 mb-2">
-        <span>{stage.replace(/_/g, ' ')}</span>
-        <span>{cards.length}</span>
+    <div className="bg-white/[0.025] border border-white/5 rounded-xl p-2 min-h-[60vh]">
+      <div className="flex items-center justify-between text-[10px] uppercase font-semibold tracking-[0.12em] px-1.5 mb-2.5">
+        <span className={`bg-gradient-to-r ${grad} bg-clip-text text-transparent`}>{stage.replace(/_/g, ' ')}</span>
+        <span className="text-slate-500">{cards.length}</span>
       </div>
       <div className="space-y-2">
         {cards.map((c) => (
@@ -87,20 +100,20 @@ function Card({ card }: { card: Card }) {
   return (
     <Link
       href={`/jobs/${card.job_id}`}
-      className="block bg-white border rounded p-2 hover:shadow-sm transition"
+      className="block bg-white/[0.04] border border-white/10 rounded-lg p-2 hover:bg-white/[0.07] hover:border-violet-500/40 transition-colors"
     >
-      <div className="text-sm font-medium leading-tight line-clamp-2">{card.job_title}</div>
-      <div className="text-xs text-neutral-600 mt-1">{card.company_name}</div>
-      <div className="flex items-center justify-between mt-2 text-[10px] text-neutral-500">
-        <span className="px-1.5 py-0.5 bg-neutral-100 rounded">{card.source_slug}</span>
+      <div className="text-sm font-medium leading-tight line-clamp-2 text-slate-100">{card.job_title}</div>
+      <div className="text-xs text-slate-400 mt-1">{card.company_name}</div>
+      <div className="flex items-center justify-between mt-2 text-[10px] text-slate-500">
+        <span className="px-1.5 py-0.5 bg-white/[0.06] rounded font-mono text-slate-400">{card.source_slug}</span>
         {card.fit_score != null && (
-          <span className={card.fit_score >= 60 ? 'text-emerald-600' : 'text-neutral-400'}>
+          <span className={card.fit_score >= 60 ? 'text-emerald-400' : 'text-slate-500'}>
             fit {card.fit_score}
           </span>
         )}
       </div>
       {card.last_share_click_at && (
-        <div className="mt-1 text-[10px] text-emerald-700 font-medium">📨 demo opened</div>
+        <div className="mt-1 text-[10px] text-emerald-400 font-medium">📨 demo opened</div>
       )}
     </Link>
   )
