@@ -79,6 +79,8 @@ def send_outreach(outreach_id: str, *, force: bool = False, test_to: str | None 
 
     body_md = (letter["body_md"] or "").replace("{{SHARE_LINK}}", share_url)
     body_html = md.markdown(body_md, extensions=["extra", "nl2br"])
+    body_html = _stylize_share_cta(body_html, share_url=share_url)
+    body_html = _append_signature(body_html, settings)
     body_html = _wrap_in_email_shell(body_html, subject=letter["subject"])
 
     # Reserve a send_logs row early so we can use its id in tracking URLs.
@@ -169,14 +171,55 @@ def _tracking_pixel(send_log_id: str, app_url: str) -> str:
 def _wrap_in_email_shell(body_html: str, *, subject: str | None = None) -> str:
     """Wrap rendered markdown in a clean, email-client-safe HTML shell.
 
-    Inline styles only (Gmail strips <style> blocks). Sticks to a single column
-    container, comfortable line-height, and a primary-color button style for
-    links inside the body so the share-link CTA stands out.
+    Inline styles only (Gmail strips <style> blocks). Single-column container,
+    comfortable line-height, sans-serif stack.
     """
     return (
         '<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;'
-        'font-size:15px;line-height:1.55;color:#1f2937;max-width:560px;">'
+        'font-size:15px;line-height:1.6;color:#1f2937;max-width:560px;">'
         + body_html
+        + "</div>"
+    )
+
+
+def _stylize_share_cta(html: str, *, share_url: str) -> str:
+    """Find the share-link <a> and re-render as a centered styled button on its
+    own line. Idempotent — safe to call even if URL isn't present.
+    """
+    button_html = (
+        '<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
+        'style="margin:18px 0;"><tr><td>'
+        f'<a href="{share_url}" '
+        'style="display:inline-block;background:#6366f1;color:#ffffff;'
+        'padding:11px 20px;border-radius:8px;text-decoration:none;'
+        'font-weight:600;font-size:14px;">'
+        '🔍 See how this email reached you →'
+        '</a></td></tr></table>'
+    )
+    # Match any <a href="<share_url>">…anything…</a> and replace with the button.
+    pattern = re.compile(
+        r'<a[^>]*href="' + re.escape(share_url) + r'"[^>]*>[^<]*</a>',
+        re.I,
+    )
+    if pattern.search(html):
+        return pattern.sub(button_html, html, count=1)
+    # Also catch the case where {{SHARE_LINK}} is naked text (unlikely now but defensive).
+    if share_url in html and '<a' not in html.split(share_url, 1)[0][-30:]:
+        return html.replace(share_url, button_html, 1)
+    return html
+
+
+def _append_signature(html: str, settings: dict[str, Any]) -> str:
+    """Append the operator signature with a faint divider above."""
+    sig_html = settings.get("email_signature_html") or ""
+    if not sig_html:
+        return html
+    divider = (
+        '<hr style="border:0;border-top:1px solid #e5e7eb;margin:24px 0 12px 0;">'
+    )
+    return html + divider + (
+        '<div style="font-size:13px;color:#6b7280;line-height:1.5;">'
+        + sig_html
         + "</div>"
     )
 
