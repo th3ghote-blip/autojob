@@ -42,6 +42,18 @@ export default async function JobDetailPage({ params }: { params: { id: string }
   const { data: latestLetter } = outreach
     ? await sb.from('letters').select('*').eq('outreach_id', outreach.id).order('version', { ascending: false }).limit(1).maybeSingle()
     : { data: null }
+
+  // Resolve {{SHARE_LINK}} to the real URL for preview. The sender does the
+  // same at send time (idempotent), but old drafts may still have the token in body_md.
+  let previewBodyMd: string | null = latestLetter?.body_md ?? null
+  if (latestLetter && outreach && previewBodyMd?.includes('{{SHARE_LINK}}')) {
+    const { data: link } = await sb.from('share_links').select('token').eq('outreach_id', outreach.id).maybeSingle()
+    const { data: settings } = await sb.from('settings').select('app_url').eq('id', 1).maybeSingle()
+    const appUrl = settings?.app_url?.replace(/\/$/, '') || ''
+    if (link?.token && appUrl) {
+      previewBodyMd = previewBodyMd.replaceAll('{{SHARE_LINK}}', `${appUrl}/share/${link.token}`)
+    }
+  }
   const { data: steps } = outreach
     ? await sb.from('process_steps').select('*').eq('outreach_id', outreach.id).order('step_order')
     : { data: [] }
@@ -66,7 +78,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
               <div className="font-medium mb-3">{latestLetter.subject}</div>
               <div
                 className="prose-letter text-sm"
-                dangerouslySetInnerHTML={{ __html: marked.parse(latestLetter.body_md || '') as string }}
+                dangerouslySetInnerHTML={{ __html: marked.parse(previewBodyMd || '') as string }}
               />
               <LetterActions
                 outreachId={outreach?.id || null}
