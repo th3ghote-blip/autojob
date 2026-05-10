@@ -110,7 +110,7 @@ export default async function SharePage({ params }: { params: { token: string } 
 
         <ol className="relative ml-3">
           <div className="absolute left-[15px] top-2 bottom-2 w-px bg-gradient-to-b from-violet-500/40 via-pink-500/40 to-transparent" />
-          {(steps || []).map((s: any) => {
+          {(steps || []).map((s: any, idx: number) => {
             const meta = STEP_META[s.kind] || { label: s.title, emoji: '·', gradient: 'from-slate-500 to-slate-700' }
             return (
               <li key={s.id} className="relative pl-12 pb-6">
@@ -120,7 +120,7 @@ export default async function SharePage({ params }: { params: { token: string } 
                 <div className="rounded-xl border border-white/10 bg-white/[0.04] backdrop-blur-sm p-5 hover:border-white/20 hover:bg-white/[0.06] transition-colors">
                   <div className="flex items-baseline gap-3 flex-wrap">
                     <span className="text-[10px] uppercase tracking-[0.15em] text-violet-300 font-semibold">
-                      Step {s.step_order} · {meta.label}
+                      Step {idx + 1} · {meta.label}
                     </span>
                     <span className="text-[10px] text-slate-500 ml-auto whitespace-nowrap font-mono">
                       {new Date(s.occurred_at).toLocaleString()}
