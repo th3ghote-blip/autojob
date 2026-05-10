@@ -30,8 +30,14 @@ export default function LetterActions({ outreachId, letter, jobUrl, contactEmail
     }
   }
 
-  async function onSend() {
+  async function onSend(resending = false) {
     if (!outreachId) return
+    if (resending) {
+      const ok = window.confirm(
+        'Send this letter again? The previous send already went out — this will fire a fresh email to the current contact address.',
+      )
+      if (!ok) return
+    }
     setSendState('sending')
     setError(null)
     try {
@@ -104,10 +110,18 @@ export default function LetterActions({ outreachId, letter, jobUrl, contactEmail
           <span className="text-xs text-emerald-700 px-3 py-1.5">✓ send queued · check /pipeline</span>
         ) : sendState === 'sending' ? (
           <span className="text-xs text-neutral-500 px-3 py-1.5">…sending</span>
+        ) : alreadySent ? (
+          <button
+            onClick={() => onSend(true)}
+            className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded px-3 py-1.5 hover:bg-amber-500/30"
+            title="Re-send the latest letter to the current contact email (e.g. after editing the address)"
+          >
+            🔁 Send again to {contactEmail}
+          </button>
         ) : (
           <button
-            onClick={onSend}
-            className="text-xs bg-brand text-white rounded px-3 py-1.5 hover:opacity-90"
+            onClick={() => onSend(false)}
+            className="text-xs bg-gradient-to-r from-violet-500 to-pink-500 text-white rounded px-3 py-1.5 hover:opacity-90 shadow-lg shadow-violet-900/30"
           >
             📧 Send via Gmail to {contactEmail}
           </button>
