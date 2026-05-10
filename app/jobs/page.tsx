@@ -203,9 +203,9 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
               <th className="p-2">Source</th>
               <th className="p-2">Apply</th>
               <th className="p-2">Status</th>
-              <th className="p-2">Fit</th>
+              <SortableTh label="Fit"     field="fit"     current={sort} search={searchParams} />
               <th className="p-2">Comp</th>
-              <th className="p-2">Posted</th>
+              <SortableTh label="Posted"  field="posted"  current={sort} search={searchParams} />
               <th className="p-2"></th>
             </tr>
           </thead>
@@ -380,6 +380,26 @@ function dedupeByCompanyAndTitle(rows: any[]): any[] {
     return db - da
   })
   return merged
+}
+
+function SortableTh({ label, field, current, search }: { label: string; field: string; current: string; search: Search }) {
+  const params = new URLSearchParams(search as any)
+  params.set('sort', field)
+  params.delete('page')  // reset to page 1 on sort change
+  const isActive = current === field
+  return (
+    <th className="p-2">
+      <a
+        href={`/jobs?${params.toString()}`}
+        className={
+          'inline-flex items-center gap-1 hover:text-brand ' +
+          (isActive ? 'text-brand font-semibold' : 'text-neutral-700')
+        }
+      >
+        {label}{isActive && ' ↓'}
+      </a>
+    </th>
+  )
 }
 
 function ApplyMethodBadge({ job }: { job: any }) {
