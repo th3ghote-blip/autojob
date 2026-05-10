@@ -99,24 +99,25 @@ def qualify_job(
         }).eq("id", job_id).execute()
 
     if log_to_process and outreach_id:
+        # Build a recruiter-safe summary from the structured output. Internal
+        # reasoning (e.g. "matches Forward Deployed pattern") goes in outputs
+        # and stays redacted; what the recruiter sees is just the score + a
+        # neutral one-liner per tier. Recruiter-visible only when qualifying.
+        tier = parsed.get("realism_tier", "reject")
+        fit = parsed.get("fit_score", 0) or 0
+        qualifies = bool(parsed.get("qualifies"))
+        recruiter_summary = _recruiter_summary(tier=tier, fit=fit, company=company.get("name"))
         log_step(
             outreach_id,
             kind="fit_scored",
-            title=f"Qualified: {parsed.get('realism_tier', '?')} (fit {parsed.get('fit_score', 0)})",
-            summary=(
-                f"**Decision:** {'pursue' if parsed.get('qualifies') else 'skip'}\n\n"
-                f"**Tier:** {parsed.get('realism_tier', '?')}\n\n"
-                f"**Pitch angle:** {parsed.get('pitch_angle', '?')}\n\n"
-                f"**Fit score:** {parsed.get('fit_score', 0)}/100\n\n"
-                f"**Reasoning:** {parsed.get('fit_reasoning', '—')}"
-                + (f"\n\n**Skip reason:** {parsed['skip_reason']}" if not parsed.get('qualifies') else "")
-            ),
+            title=f"Scored fit · {fit}/100 · {_tier_label(tier)}",
+            summary=recruiter_summary,
             inputs={"profile_version": "v1", "title": job['title'], "company": company.get('name')},
-            outputs=parsed,
+            outputs=parsed,  # full reasoning stays in outputs (redacted on share page)
             model=result["model"],
             tokens_used=result["tokens_in"] + result["tokens_out"],
             duration_ms=duration_ms,
-            visible_to_recruiter=False,  # internal screening — don't show recruiters our scoring
+            visible_to_recruiter=qualifies,  # only show on share page when we pursued
         )
 
     return parsed
@@ -137,3 +138,42 @@ def _parse_json(text: str) -> dict[str, Any]:
     except Exception:
         m = re.search(r"\{[\s\S]+\}", text)
         return json.loads(m.group(0)) if m else {}
+
+
+_TIER_LABELS = {
+    "tier_1_apply":      "tier 1 — strong fit",
+    "tier_2_consulting": "tier 2 — consulting pitch",
+    "retainer":          "retainer-fit",
+    "reject":            "no match",
+}
+
+def _tier_label(tier: str) -> str:
+    return _TIER_LABELS.get(tier, tier)
+
+
+def _recruiter_summary(*, tier: str, fit: int, company: str | None) -> str:
+    """Recruiter-safe markdown — no internal pattern names or operator-specific phrasing."""
+    co = company or "your company"
+    bar_len = max(0, min(20, fit // 5))
+    bar = "█" * bar_len + "░" * (20 - bar_len)
+    base = (
+        f"**Match score:** `{fit:>3}/100`  `{bar}`\n\n"
+    )
+    if tier == "tier_1_apply":
+        return base + (
+            f"The operator's profile aligns strongly with the role at **{co}** — stack, "
+            "stage of company, geography and compensation all clear the bar. "
+            "Recommended path: **apply directly** — the email in your inbox is a job application, not a sales pitch."
+        )
+    if tier == "tier_2_consulting":
+        return base + (
+            f"The operator's profile is a solid match for what **{co}** is hiring for, "
+            "but a stretch as a full-time hire — the email proposes a paid engagement instead, "
+            "shipping the same outcome in weeks rather than months."
+        )
+    if tier == "retainer":
+        return base + (
+            f"The role at **{co}** is a fit but below the operator's full-time threshold. "
+            "The email proposes a small monthly retainer engagement instead of a hire."
+        )
+    return base + "The agent decided not to pursue this match."
