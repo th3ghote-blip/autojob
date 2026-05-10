@@ -2,20 +2,26 @@ name: pipeline
 # Runs an hour after discover. Researches new companies, scores fit,
 # drafts letters for qualified jobs.
 
-# Cron disabled: the qualifier is now manual / on-demand only. The user picks
-# which jobs deserve a letter via the /jobs page; this workflow runs in
-# single-job mode (workflow_dispatch with job_id) or batch (with max).
+# Two modes:
+#   - Cron (daily 09:00 UTC, an hour after discover): batch-score new jobs
+#     with the Haiku qualifier so /jobs sorts them by fit. Never gates,
+#     never drafts. Just sets fit_score + realism_tier + reasoning on
+#     has-email + recent + unscored jobs.
+#   - workflow_dispatch with job_id: single-job mode (research + draft a
+#     letter for one specific job). Used by the /jobs Draft button.
 on:
+  schedule:
+    - cron: '0 9 * * *'
   workflow_dispatch:
     inputs:
       job_id:
-        description: 'Run on one specific job UUID (skips qualifier gate, drafts letter directly)'
+        description: 'Run on one specific job UUID (research + draft letter for it)'
         required: false
         default: ''
       max:
-        description: 'Batch mode: cap how many jobs to advance this run'
+        description: 'Batch mode: cap how many jobs to score this run'
         required: false
-        default: '20'
+        default: '300'
 
 jobs:
   pipeline:
