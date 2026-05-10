@@ -170,59 +170,92 @@ def _tracking_pixel(send_log_id: str, app_url: str) -> str:
 
 
 def _wrap_in_email_shell(body_html: str, *, subject: str | None = None) -> str:
-    """Wrap rendered markdown in a clean, email-client-safe HTML shell.
+    """Wrap rendered markdown in a branded, email-client-safe HTML shell.
 
-    Inline styles only (Gmail strips <style> blocks). Single-column container,
-    comfortable line-height, sans-serif stack.
+    - Outer white card with subtle border + rounded corners
+    - Top 6px gradient strip (violet→fuchsia→pink) matching the share page
+    - Inline styles only (Gmail strips <style>)
+    - Tables instead of flex for older-client compat
     """
     return (
+        # Wrapper to centre on light backgrounds.
         '<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;'
-        'font-size:15px;line-height:1.6;color:#1f2937;max-width:560px;">'
+        'font-size:15px;line-height:1.65;color:#1f2937;background:#f9fafb;padding:8px 0;">'
+        '<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
+        'style="border-collapse:separate;border-radius:14px;overflow:hidden;'
+        'border:1px solid #e5e7eb;background:#ffffff;max-width:600px;width:100%;'
+        'box-shadow:0 1px 3px rgba(15,23,42,0.04);">'
+        # Gradient strip
+        '<tr><td style="height:5px;line-height:5px;font-size:0;'
+        'background:linear-gradient(90deg,#6366f1 0%,#a855f7 50%,#ec4899 100%);'
+        'background-color:#6366f1;">&nbsp;</td></tr>'
+        # Body cell
+        '<tr><td style="padding:28px 30px 18px 30px;color:#1f2937;font-size:15px;line-height:1.65;">'
         + body_html
-        + "</div>"
+        + "</td></tr>"
+        "</table>"
+        "</div>"
     )
 
 
 def _stylize_share_cta(html: str, *, share_url: str) -> str:
-    """Find the share-link <a> and re-render as a centered styled button on its
-    own line. Idempotent — safe to call even if URL isn't present.
+    """Find the share-link <a> and re-render as a centred gradient button card
+    with a small caption, on its own line. Idempotent.
     """
-    button_html = (
+    button_block = (
         '<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
-        'style="margin:18px 0;"><tr><td>'
+        'style="margin:22px 0 22px 0;border-collapse:separate;">'
+        '<tr><td style="padding-bottom:6px;">'
+        '<div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;'
+        'color:#7c3aed;font-weight:600;">Live demo · the AI process</div>'
+        '</td></tr>'
+        '<tr><td>'
         f'<a href="{share_url}" '
-        'style="display:inline-block;background:#6366f1;color:#ffffff;'
-        'padding:11px 20px;border-radius:8px;text-decoration:none;'
-        'font-weight:600;font-size:14px;">'
+        'style="display:inline-block;'
+        'background:linear-gradient(90deg,#6366f1 0%,#a855f7 55%,#ec4899 100%);'
+        'background-color:#6366f1;'
+        'color:#ffffff;padding:12px 22px;border-radius:9px;text-decoration:none;'
+        'font-weight:600;font-size:14px;letter-spacing:-0.01em;'
+        'box-shadow:0 4px 14px rgba(99,102,241,0.28);">'
         '🔍 See how this email reached you →'
-        '</a></td></tr></table>'
+        "</a></td></tr></table>"
     )
-    # Match any <a href="<share_url>">…anything…</a> and replace with the button.
     pattern = re.compile(
         r'<a[^>]*href="' + re.escape(share_url) + r'"[^>]*>[^<]*</a>',
         re.I,
     )
     if pattern.search(html):
-        return pattern.sub(button_html, html, count=1)
-    # Also catch the case where {{SHARE_LINK}} is naked text (unlikely now but defensive).
+        return pattern.sub(button_block, html, count=1)
     if share_url in html and '<a' not in html.split(share_url, 1)[0][-30:]:
-        return html.replace(share_url, button_html, 1)
+        return html.replace(share_url, button_block, 1)
     return html
 
 
 def _append_signature(html: str, settings: dict[str, Any]) -> str:
-    """Append the operator signature with a faint divider above."""
+    """Append the operator signature with a faint divider + a tiny brand mark."""
     sig_html = settings.get("email_signature_html") or ""
     if not sig_html:
         return html
     divider = (
-        '<hr style="border:0;border-top:1px solid #e5e7eb;margin:24px 0 12px 0;">'
+        '<div style="height:1px;line-height:1px;font-size:0;'
+        'background:linear-gradient(90deg,transparent,#e5e7eb 20%,#e5e7eb 80%,transparent);'
+        'margin:26px 0 14px 0;">&nbsp;</div>'
     )
-    return html + divider + (
-        '<div style="font-size:13px;color:#6b7280;line-height:1.5;">'
+    sig_block = (
+        '<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
+        'style="border-collapse:collapse;">'
+        '<tr>'
+        # Tiny gradient bar accent
+        '<td style="vertical-align:top;padding-right:12px;">'
+        '<div style="width:3px;height:34px;border-radius:2px;'
+        'background:linear-gradient(180deg,#6366f1,#ec4899);">&nbsp;</div>'
+        '</td>'
+        '<td style="vertical-align:top;font-size:13px;color:#6b7280;line-height:1.55;">'
         + sig_html
-        + "</div>"
+        + '</td>'
+        '</tr></table>'
     )
+    return html + divider + sig_block
 
 
 _HREF_RE = re.compile(r'href="([^"]+)"', re.I)
