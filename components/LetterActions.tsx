@@ -11,9 +11,9 @@ type Props = {
 }
 
 export default function LetterActions({ outreachId, letter, jobUrl, contactEmail, alreadySent }: Props) {
-  const [sendState, setSendState] = useState<'idle' | 'sending' | 'queued' | 'error'>(
-    alreadySent ? 'queued' : 'idle',
-  )
+  // Always start idle so the Send/Resend button is reachable. `alreadySent`
+  // is consulted in the render below to choose which label/button to show.
+  const [sendState, setSendState] = useState<'idle' | 'sending' | 'queued' | 'error'>('idle')
   const [testState, setTestState] = useState<'idle' | 'sending' | 'queued' | 'error'>('idle')
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle')
   const [error, setError] = useState<string | null>(null)
