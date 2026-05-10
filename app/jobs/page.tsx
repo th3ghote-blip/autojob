@@ -36,7 +36,7 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
   const minFit = parseInt(searchParams.min_fit || '0', 10) || 0
   // Default ON — without an email there's nothing to send. Use '0' to browse no-email ATS roles.
   const hasEmail = searchParams.has_email !== '0'
-  const postedWithin = searchParams.posted_within ?? '7'  // default: last 7 days
+  const postedWithin = searchParams.posted_within ?? '30'  // default: last 30 days (HN threads stay relevant ~3-4 weeks)
   // Default ON for remote_only and hide_rejected. Use '0' to opt out.
   const remoteOnly = searchParams.remote_only !== '0'
   const hideRejected = searchParams.hide_rejected !== '0'
