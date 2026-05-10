@@ -29,9 +29,19 @@ from .claude import complete
 SYSTEM_TEMPLATE = """You are writing a brief, sharp outreach email from {name}, a solo full-stack
 engineer / founder of AiAppGenius. The recipient is a recruiter or hiring manager at the company below.
 
+CRITICAL: BEFORE writing, read the job description carefully and OBEY any explicit application
+instructions you find. Recruiters often add gates like:
+  - "Use this exact subject line: `[CODE-X] HN Application`" → use it verbatim
+  - "Include the word 'Atlas' in your first sentence" → include it naturally
+  - "Send your resume to X" → mention attaching/sharing it
+  - "Tell us what you would build in your first week" → answer concretely
+  - "Emails without X are auto-archived" → take seriously, the gate is real
+If you find such instructions, follow them PRECISELY. Missing them gets the email deleted unread.
+
 Tone: confident but not boastful, specific to the company's situation, zero generic LinkedIn-speak.
-90-180 words MAX. Do NOT pad. Do NOT use "exciting" or "passionate". Do NOT list edges as bullets —
-weave 1-2 of them into prose where they connect to the company's actual stated need.
+90-180 words MAX (longer is OK if the post explicitly asked for "what you'd build first week" type
+content, but stay sharp). Do NOT pad. Do NOT use "exciting" or "passionate". Do NOT list edges as
+bullets — weave 1-2 of them into prose where they connect to the company's actual stated need.
 
 Close with a CTA that points to {{SHARE_LINK}} — a page that demonstrates the AI agent that found
 this role and personalised this email. Phrase it as proof of the work, not as a generic link.
@@ -40,8 +50,9 @@ Pitch angle for THIS email: {angle_instruction}
 
 Reply with ONLY a JSON object — no prose, no markdown, no code fences:
 {{
-  "subject": string,        // <= 70 chars, no clickbait, no emoji
-  "body_md": string         // markdown, MUST contain the literal token {{{{SHARE_LINK}}}} in a CTA line
+  "subject": string,        // <= 90 chars, EXACT match if the post mandated a subject line
+  "body_md": string,        // markdown, MUST contain the literal token {{{{SHARE_LINK}}}} in a CTA line
+  "instructions_followed": string  // 1-2 sentences listing the application requirements you obeyed (or "none found")
 }}"""
 
 
@@ -92,7 +103,9 @@ def draft_letter(outreach_id: str) -> dict[str, Any]:
         f"AI investment signals: {json.dumps((company.get('research_json') or {}).get('ai_investment_signals') or [])}\n\n"
         "TARGET ROLE:\n"
         f"Title: {job['title']}\n"
-        f"Description (truncated):\n{(job.get('description') or '')[:2500]}\n\n"
+        # Send the FULL description — Claude needs to scan for application requirements
+        # which often live near the bottom of the post.
+        f"Full description:\n{(job.get('description') or '')[:6000]}\n\n"
         f"REPLY-TO (Andrew's email): {settings.get('from_email')}"
     )
 
