@@ -80,6 +80,7 @@ def send_outreach(outreach_id: str, *, force: bool = False, test_to: str | None 
     body_md = (letter["body_md"] or "").replace("{{SHARE_LINK}}", share_url)
     body_html = md.markdown(body_md, extensions=["extra", "nl2br"])
     body_html = _stylize_share_cta(body_html, share_url=share_url)
+    body_html = _restyle_body_links(body_html)
     body_html = _append_signature(body_html, settings)
     body_html = _wrap_in_email_shell(body_html, subject=letter["subject"])
 
@@ -170,46 +171,47 @@ def _tracking_pixel(send_log_id: str, app_url: str) -> str:
 
 
 def _wrap_in_email_shell(body_html: str, *, subject: str | None = None) -> str:
-    """Wrap rendered markdown in a branded, email-client-safe HTML shell.
+    """Full-dark branded email shell — matches the /share/[token] theme.
 
-    Layout (top to bottom):
-      - Outer white card, rounded, subtle border + soft shadow
-      - 5px gradient strip (violet → purple → pink), matches share page header
-      - Brand row: "AiAppGenius" wordmark + tiny gradient dot
-      - Body
-    Tables for layout (older-client compat). Inline styles only.
+    Deep navy gradient bg, light slate text, gradient hero strip + brand header.
+    Tables for layout, inline styles only (Gmail/Apple Mail). Outlook desktop
+    will render a darker but flatter version (no gradient bg-image), still OK.
     """
     return (
         '<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;'
-        'font-size:15px;line-height:1.65;color:#1f2937;background:#f3f4f6;padding:12px 0;">'
+        'font-size:15px;line-height:1.65;color:#cbd5e1;background:#020617;padding:14px 0;">'
         '<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" '
         'style="border-collapse:separate;border-radius:14px;overflow:hidden;'
-        'border:1px solid #e5e7eb;background:#ffffff;max-width:620px;width:100%;'
-        'box-shadow:0 4px 16px rgba(15,23,42,0.06);">'
-        # Gradient strip (matches share page hero gradient)
+        'border:1px solid rgba(99,102,241,0.18);'
+        'background:#0f172a;'
+        'background-image:linear-gradient(135deg,#1e1b4b 0%,#0f172a 60%,#020617 100%);'
+        'background-color:#0f172a;'
+        'max-width:620px;width:100%;'
+        'box-shadow:0 8px 28px rgba(2,6,23,0.5);">'
+        # Gradient strip (top hero)
         '<tr><td style="height:5px;line-height:5px;font-size:0;'
         'background:linear-gradient(90deg,#6366f1 0%,#a855f7 50%,#ec4899 100%);'
         'background-color:#6366f1;">&nbsp;</td></tr>'
         # Brand header row
-        '<tr><td style="padding:18px 30px 10px 30px;border-bottom:1px solid #f3f4f6;">'
+        '<tr><td style="padding:20px 30px 14px 30px;border-bottom:1px solid rgba(99,102,241,0.12);">'
         '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
         '<tr>'
         '<td style="vertical-align:middle;padding-right:10px;">'
-        '<div style="width:8px;height:8px;border-radius:50%;'
+        '<div style="width:9px;height:9px;border-radius:50%;'
         'background:linear-gradient(135deg,#6366f1,#ec4899);'
-        'box-shadow:0 0 0 3px rgba(99,102,241,0.15);">&nbsp;</div>'
+        'box-shadow:0 0 0 3px rgba(99,102,241,0.22);">&nbsp;</div>'
         '</td>'
-        '<td style="vertical-align:middle;font-size:13px;font-weight:600;color:#1f2937;letter-spacing:-0.01em;">'
+        '<td style="vertical-align:middle;font-size:14px;font-weight:600;color:#f1f5f9;letter-spacing:-0.01em;">'
         'AiAppGenius'
         '</td>'
-        '<td style="vertical-align:middle;padding-left:10px;font-size:11px;color:#9ca3af;'
-        'letter-spacing:0.08em;text-transform:uppercase;">'
+        '<td style="vertical-align:middle;padding-left:12px;font-size:10px;color:#94a3b8;'
+        'letter-spacing:0.16em;text-transform:uppercase;font-weight:600;">'
         'sent by an agent'
         '</td>'
         '</tr></table>'
         '</td></tr>'
-        # Body cell
-        '<tr><td style="padding:24px 30px 18px 30px;color:#1f2937;font-size:15px;line-height:1.65;">'
+        # Body cell — dark mode prose
+        '<tr><td style="padding:24px 30px 18px 30px;color:#cbd5e1;font-size:15px;line-height:1.65;">'
         + body_html
         + "</td></tr>"
         "</table>"
@@ -223,14 +225,13 @@ def _stylize_share_cta(html: str, *, share_url: str) -> str:
     text, pulsing live dot, gradient button). Idempotent.
     """
     cta_block = (
-        # Outer dark card, full width inside email body.
+        # Embedded CTA panel — slightly lighter than the email bg so it pops.
         '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" '
         'style="border-collapse:separate;margin:22px 0 22px 0;">'
-        '<tr><td style="background:#0f172a;'
-        'background-image:linear-gradient(135deg,#1e1b4b 0%,#0f172a 55%,#020617 100%);'
-        'background-color:#0f172a;'
+        '<tr><td style="background:rgba(99,102,241,0.10);'
+        'background-color:#1e1b4b;'
         'border-radius:12px;padding:20px 22px;'
-        'border:1px solid rgba(99,102,241,0.25);">'
+        'border:1px solid rgba(168,85,247,0.30);">'
         # Live demo badge row
         '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
         '<tr>'
@@ -276,30 +277,41 @@ def _stylize_share_cta(html: str, *, share_url: str) -> str:
 
 
 def _append_signature(html: str, settings: dict[str, Any]) -> str:
-    """Append the operator signature with a faint divider + a tiny brand mark."""
+    """Append the operator signature on the dark email bg."""
     sig_html = settings.get("email_signature_html") or ""
     if not sig_html:
         return html
     divider = (
         '<div style="height:1px;line-height:1px;font-size:0;'
-        'background:linear-gradient(90deg,transparent,#e5e7eb 20%,#e5e7eb 80%,transparent);'
-        'margin:26px 0 14px 0;">&nbsp;</div>'
+        'background:linear-gradient(90deg,transparent,rgba(99,102,241,0.35) 20%,rgba(236,72,153,0.35) 80%,transparent);'
+        'margin:28px 0 16px 0;">&nbsp;</div>'
     )
     sig_block = (
         '<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
         'style="border-collapse:collapse;">'
         '<tr>'
-        # Tiny gradient bar accent
         '<td style="vertical-align:top;padding-right:12px;">'
-        '<div style="width:3px;height:34px;border-radius:2px;'
+        '<div style="width:3px;height:38px;border-radius:2px;'
         'background:linear-gradient(180deg,#6366f1,#ec4899);">&nbsp;</div>'
         '</td>'
-        '<td style="vertical-align:top;font-size:13px;color:#6b7280;line-height:1.55;">'
+        '<td style="vertical-align:top;font-size:13px;color:#94a3b8;line-height:1.55;">'
         + sig_html
         + '</td>'
         '</tr></table>'
     )
     return html + divider + sig_block
+
+
+def _restyle_body_links(html: str) -> str:
+    """Add a violet inline style to any <a> that doesn't already have one
+    (the share-CTA + signature already carry their own styles).
+    """
+    return re.sub(
+        r'<a (?![^>]*style=)',
+        '<a style="color:#a78bfa;text-decoration:underline;text-underline-offset:2px;" ',
+        html,
+        flags=re.I,
+    )
 
 
 _HREF_RE = re.compile(r'href="([^"]+)"', re.I)
