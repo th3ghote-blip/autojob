@@ -172,25 +172,44 @@ def _tracking_pixel(send_log_id: str, app_url: str) -> str:
 def _wrap_in_email_shell(body_html: str, *, subject: str | None = None) -> str:
     """Wrap rendered markdown in a branded, email-client-safe HTML shell.
 
-    - Outer white card with subtle border + rounded corners
-    - Top 6px gradient strip (violet→fuchsia→pink) matching the share page
-    - Inline styles only (Gmail strips <style>)
-    - Tables instead of flex for older-client compat
+    Layout (top to bottom):
+      - Outer white card, rounded, subtle border + soft shadow
+      - 5px gradient strip (violet → purple → pink), matches share page header
+      - Brand row: "AiAppGenius" wordmark + tiny gradient dot
+      - Body
+    Tables for layout (older-client compat). Inline styles only.
     """
     return (
-        # Wrapper to centre on light backgrounds.
         '<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;'
-        'font-size:15px;line-height:1.65;color:#1f2937;background:#f9fafb;padding:8px 0;">'
-        '<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
+        'font-size:15px;line-height:1.65;color:#1f2937;background:#f3f4f6;padding:12px 0;">'
+        '<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" '
         'style="border-collapse:separate;border-radius:14px;overflow:hidden;'
-        'border:1px solid #e5e7eb;background:#ffffff;max-width:600px;width:100%;'
-        'box-shadow:0 1px 3px rgba(15,23,42,0.04);">'
-        # Gradient strip
+        'border:1px solid #e5e7eb;background:#ffffff;max-width:620px;width:100%;'
+        'box-shadow:0 4px 16px rgba(15,23,42,0.06);">'
+        # Gradient strip (matches share page hero gradient)
         '<tr><td style="height:5px;line-height:5px;font-size:0;'
         'background:linear-gradient(90deg,#6366f1 0%,#a855f7 50%,#ec4899 100%);'
         'background-color:#6366f1;">&nbsp;</td></tr>'
+        # Brand header row
+        '<tr><td style="padding:18px 30px 10px 30px;border-bottom:1px solid #f3f4f6;">'
+        '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
+        '<tr>'
+        '<td style="vertical-align:middle;padding-right:10px;">'
+        '<div style="width:8px;height:8px;border-radius:50%;'
+        'background:linear-gradient(135deg,#6366f1,#ec4899);'
+        'box-shadow:0 0 0 3px rgba(99,102,241,0.15);">&nbsp;</div>'
+        '</td>'
+        '<td style="vertical-align:middle;font-size:13px;font-weight:600;color:#1f2937;letter-spacing:-0.01em;">'
+        'AiAppGenius'
+        '</td>'
+        '<td style="vertical-align:middle;padding-left:10px;font-size:11px;color:#9ca3af;'
+        'letter-spacing:0.08em;text-transform:uppercase;">'
+        'sent by an agent'
+        '</td>'
+        '</tr></table>'
+        '</td></tr>'
         # Body cell
-        '<tr><td style="padding:28px 30px 18px 30px;color:#1f2937;font-size:15px;line-height:1.65;">'
+        '<tr><td style="padding:24px 30px 18px 30px;color:#1f2937;font-size:15px;line-height:1.65;">'
         + body_html
         + "</td></tr>"
         "</table>"
@@ -199,35 +218,60 @@ def _wrap_in_email_shell(body_html: str, *, subject: str | None = None) -> str:
 
 
 def _stylize_share_cta(html: str, *, share_url: str) -> str:
-    """Find the share-link <a> and re-render as a centred gradient button card
-    with a small caption, on its own line. Idempotent.
+    """Replace the share-link <a> with a dark-themed CTA panel that mirrors
+    the share page's visual language (deep navy background, gradient hero
+    text, pulsing live dot, gradient button). Idempotent.
     """
-    button_block = (
-        '<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
-        'style="margin:22px 0 22px 0;border-collapse:separate;">'
-        '<tr><td style="padding-bottom:6px;">'
-        '<div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;'
-        'color:#7c3aed;font-weight:600;">Live demo · the AI process</div>'
-        '</td></tr>'
-        '<tr><td>'
+    cta_block = (
+        # Outer dark card, full width inside email body.
+        '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" '
+        'style="border-collapse:separate;margin:22px 0 22px 0;">'
+        '<tr><td style="background:#0f172a;'
+        'background-image:linear-gradient(135deg,#1e1b4b 0%,#0f172a 55%,#020617 100%);'
+        'background-color:#0f172a;'
+        'border-radius:12px;padding:20px 22px;'
+        'border:1px solid rgba(99,102,241,0.25);">'
+        # Live demo badge row
+        '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
+        '<tr>'
+        '<td style="vertical-align:middle;padding-right:8px;">'
+        '<div style="width:6px;height:6px;border-radius:50%;background:#34d399;'
+        'box-shadow:0 0 0 3px rgba(52,211,153,0.2);">&nbsp;</div>'
+        '</td>'
+        '<td style="vertical-align:middle;font-size:10px;font-weight:600;'
+        'letter-spacing:0.16em;text-transform:uppercase;color:#a78bfa;">'
+        'Live demo · the AI process'
+        '</td>'
+        '</tr></table>'
+        # Headline
+        '<div style="margin:10px 0 4px 0;font-size:16px;line-height:1.4;color:#f1f5f9;'
+        'font-weight:600;letter-spacing:-0.01em;">'
+        'See how this email reached you'
+        '</div>'
+        # Subline
+        '<div style="font-size:13px;line-height:1.5;color:#94a3b8;margin-bottom:14px;">'
+        'Every step the agent took — from finding your post to writing this — laid out in order.'
+        '</div>'
+        # Button
         f'<a href="{share_url}" '
         'style="display:inline-block;'
         'background:linear-gradient(90deg,#6366f1 0%,#a855f7 55%,#ec4899 100%);'
         'background-color:#6366f1;'
-        'color:#ffffff;padding:12px 22px;border-radius:9px;text-decoration:none;'
+        'color:#ffffff;padding:11px 20px;border-radius:8px;text-decoration:none;'
         'font-weight:600;font-size:14px;letter-spacing:-0.01em;'
-        'box-shadow:0 4px 14px rgba(99,102,241,0.28);">'
-        '🔍 See how this email reached you →'
-        "</a></td></tr></table>"
+        'box-shadow:0 6px 18px rgba(168,85,247,0.4);">'
+        'Open the demo page →'
+        "</a>"
+        "</td></tr></table>"
     )
     pattern = re.compile(
         r'<a[^>]*href="' + re.escape(share_url) + r'"[^>]*>[^<]*</a>',
         re.I,
     )
     if pattern.search(html):
-        return pattern.sub(button_block, html, count=1)
+        return pattern.sub(cta_block, html, count=1)
     if share_url in html and '<a' not in html.split(share_url, 1)[0][-30:]:
-        return html.replace(share_url, button_block, 1)
+        return html.replace(share_url, cta_block, 1)
     return html
 
 
