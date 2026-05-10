@@ -57,13 +57,17 @@ class AshbySource(Source):
         if hard_reject(title, item.get("descriptionPlain"), item.get("locationName")):
             return None
 
-        comp = item.get("compensation") or {}
+        # compensation can be a dict, a list, a string, or null depending on the
+        # company config. Be defensive.
+        comp = item.get("compensation")
         comp_min = comp_max = None
-        for tier in (comp.get("compensationTierSummary") or []):
-            if tier.get("currencyCode") == "USD":
-                comp_min = tier.get("minValue")
-                comp_max = tier.get("maxValue")
-                break
+        if isinstance(comp, dict):
+            tiers = comp.get("compensationTierSummary") or []
+            for tier in tiers:
+                if isinstance(tier, dict) and tier.get("currencyCode") == "USD":
+                    comp_min = tier.get("minValue")
+                    comp_max = tier.get("maxValue")
+                    break
 
         return NormalizedJob(
             external_id=raw.external_id,
