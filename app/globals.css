@@ -16,3 +16,15 @@ body {
 .prose-letter p { @apply my-2 leading-relaxed; }
 .prose-letter a { @apply text-brand underline; }
 .prose-letter ul { @apply list-disc pl-5 my-2; }
+
+/* Share-page dark prose. */
+.prose-share h1, .prose-share h2, .prose-share h3 {
+  @apply font-semibold text-slate-100 mt-3 mb-1;
+}
+.prose-share p { @apply my-2 leading-relaxed; }
+.prose-share strong { @apply text-slate-100 font-semibold; }
+.prose-share a { @apply text-violet-400 underline underline-offset-2 hover:text-violet-300; }
+.prose-share ul { @apply list-disc pl-5 my-2 space-y-1; }
+.prose-share ol { @apply list-decimal pl-5 my-2 space-y-1; }
+.prose-share code { @apply text-violet-300 bg-white/[0.05] px-1.5 py-0.5 rounded text-[12px]; }
+.prose-share blockquote { @apply border-l-2 border-violet-500/40 pl-4 italic text-slate-300 my-3; }

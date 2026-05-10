@@ -113,15 +113,16 @@ def send_outreach(outreach_id: str, *, force: bool = False, test_to: str | None 
         if not test_to:
             db().table("letters").update({"sent": True}).eq("id", letter["id"]).execute()
             db().table("outreach").update({"stage": "sent", "sent_at": "now()"}).eq("id", outreach_id).execute()
-        log_step(
-            outreach_id,
-            kind="sent",
-            title=f"Sent to {to_email}",
-            summary=f"Email delivered via Gmail SMTP. Tracking pixel + share link active.\n\nShare link: {share_url}",
-            inputs={"to": to_email, "subject": letter["subject"]},
-            outputs={"send_log_id": send_log["id"], "share_token": share_token},
-            duration_ms=int((time.time() - started) * 1000),
-        )
+            # Only the production send is part of the recruiter-visible trail.
+            log_step(
+                outreach_id,
+                kind="sent",
+                title=f"Sent to {to_email}",
+                summary=f"Email delivered via Gmail SMTP. Tracking pixel + share link active.\n\nShare link: {share_url}",
+                inputs={"to": to_email, "subject": letter["subject"]},
+                outputs={"send_log_id": send_log["id"], "share_token": share_token},
+                duration_ms=int((time.time() - started) * 1000),
+            )
         return {"ok": True, "send_log_id": send_log["id"], "share_url": share_url}
     except Exception as e:  # noqa: BLE001
         db().table("send_logs").update({
