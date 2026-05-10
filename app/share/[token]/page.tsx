@@ -49,6 +49,17 @@ export default async function SharePage({ params }: { params: { token: string } 
     .limit(1)
     .maybeSingle()
 
+  // Substitute {{SHARE_LINK}} with the actual page URL so the recruiter
+  // sees the real link in the rendered letter (not the literal placeholder).
+  let letterBodyMd = letter?.body_md ?? ''
+  if (letterBodyMd.includes('{{SHARE_LINK}}')) {
+    const { data: settings } = await sb.from('settings').select('app_url').eq('id', 1).maybeSingle()
+    const appUrl = settings?.app_url?.replace(/\/$/, '') || ''
+    if (appUrl) {
+      letterBodyMd = letterBodyMd.replaceAll('{{SHARE_LINK}}', `${appUrl}/share/${link.token}`)
+    }
+  }
+
   const job = outreach.jobs
   const company = outreach.companies
 
@@ -149,7 +160,7 @@ export default async function SharePage({ params }: { params: { token: string } 
               <div className="border-t border-white/10 pt-4">
                 <div
                   className="prose-share text-sm text-slate-300"
-                  dangerouslySetInnerHTML={{ __html: marked.parse(letter.body_md || '') as string }}
+                  dangerouslySetInnerHTML={{ __html: marked.parse(letterBodyMd || '') as string }}
                 />
               </div>
             </article>
