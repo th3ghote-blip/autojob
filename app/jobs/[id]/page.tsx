@@ -2,6 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import { marked } from 'marked'
 import Shell from '@/components/Shell'
 import LetterActions from '@/components/LetterActions'
+import EditableContact from '@/components/EditableContact'
 import { isOwner } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 
@@ -107,7 +108,11 @@ export default async function JobDetailPage({ params }: { params: { id: string }
             <div className="text-sm space-y-1.5">
               <div className="text-slate-400">Stage: <span className="text-slate-100 font-medium">{outreach?.stage || '—'}</span></div>
               <div className="text-slate-400">Pitch: <span className="text-slate-200">{outreach?.pitch_angle || '—'}</span></div>
-              <div className="text-slate-400">Contact: <span className="text-slate-200">{job.contact_email || '—'}</span></div>
+              <div className="text-slate-400">Contact: <EditableContact
+                jobId={job.id}
+                initial={job.contact_email}
+                companyDomain={job.companies?.domain || null}
+              /></div>
               <div className="text-slate-400">Fit: <span className="text-emerald-400 font-medium">{job.fit_score ?? '—'}</span></div>
             </div>
           </div>
