@@ -56,8 +56,18 @@ Rules:
    one is small (we see hundreds). Default to skip when ambiguous. Better quiet than spammy."""
 
 
-def qualify_job(job_id: str, *, outreach_id: str | None = None, log_to_process: bool = True) -> dict[str, Any]:
-    """Score one job against the profile. Returns the JSON the model produced."""
+def qualify_job(
+    job_id: str,
+    *,
+    outreach_id: str | None = None,
+    log_to_process: bool = True,
+    write_to_job: bool = True,
+) -> dict[str, Any]:
+    """Score one job against the profile. Returns the JSON the model produced.
+
+    With write_to_job=True (default) the fit_score / realism_tier / reasoning
+    are persisted on the job row so the /jobs dashboard can sort by them.
+    """
     started = time.time()
     job = db().table("jobs").select("*, companies(name, domain, website)").eq("id", job_id).single().execute().data
     company = job.get("companies") or {}
@@ -79,6 +89,14 @@ def qualify_job(job_id: str, *, outreach_id: str | None = None, log_to_process: 
     parsed = _parse_json(result["text"])
 
     duration_ms = int((time.time() - started) * 1000)
+
+    if write_to_job:
+        db().table("jobs").update({
+            "fit_score": parsed.get("fit_score") or 0,
+            "realism_tier": parsed.get("realism_tier") or "reject",
+            "qualifier_reasoning": parsed.get("fit_reasoning") or parsed.get("skip_reason") or "",
+            "qualifier_checked_at": "now()",
+        }).eq("id", job_id).execute()
 
     if log_to_process and outreach_id:
         log_step(

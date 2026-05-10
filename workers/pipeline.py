@@ -25,10 +25,18 @@ from .process import log_step
 
 
 def _new_jobs(limit: int) -> list[dict]:
+    """Score-worthy jobs: status=new, has contact_email (so we can actually
+    send), and posted within the last ~60 days. Ordered most-recent first.
+    """
+    from datetime import datetime, timedelta, timezone
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=60)).isoformat()
     return (
         db().table("jobs").select("*")
         .eq("status", "new")
-        .order("created_at", desc=True).limit(limit).execute()
+        .not_.is_("contact_email", "null")
+        .gte("posted_at", cutoff)
+        .is_("qualifier_checked_at", "null")
+        .order("posted_at", desc=True).limit(limit).execute()
     ).data or []
 
 
@@ -89,30 +97,31 @@ def draft_one(job_id: str) -> dict:
 
 
 def batch_score(max_jobs: int) -> None:
-    """Batch qualifier — scores jobs as metadata, does NOT gate or draft."""
+    """Batch qualifier — scores has-email + recent jobs, writes fit_score
+    directly to jobs table. No outreach rows created. No letters drafted.
+    """
     jobs = _new_jobs(max_jobs)
     scored = errored = 0
+    fit_buckets = {"tier_1_apply": 0, "tier_2_consulting": 0, "retainer": 0, "reject": 0}
+    print(f"scoring {len(jobs)} jobs (has email, posted last 60d, not yet checked)…")
     for job in jobs:
-        company_id = job["company_id"]
-        outreach_id = _ensure_outreach(job["id"], company_id)
         try:
-            decision = qualify_job(job["id"], outreach_id=outreach_id, log_to_process=True)
-            pitch_angle = decision.get("pitch_angle") or "consulting"
-            note_blob = json.dumps({
-                "fit_score": decision.get("fit_score"),
-                "realism_tier": decision.get("realism_tier"),
-                "qualifies": decision.get("qualifies"),
-                "reasoning": decision.get("fit_reasoning"),
-            })
-            db().table("outreach").update({
-                "pitch_angle": pitch_angle,
-                "notes": note_blob,
-            }).eq("id", outreach_id).execute()
+            decision = qualify_job(
+                job["id"],
+                outreach_id=None,
+                log_to_process=False,
+                write_to_job=True,
+            )
+            tier = decision.get("realism_tier") or "reject"
+            fit_buckets[tier] = fit_buckets.get(tier, 0) + 1
             scored += 1
         except Exception as e:  # noqa: BLE001
             print(f"  ⚠ score failed for {job['id']}: {e}")
+            # Still mark checked so we don't retry forever.
+            db().table("jobs").update({"qualifier_checked_at": "now()"}).eq("id", job["id"]).execute()
             errored += 1
-    print(f"considered={len(jobs)} scored={scored} errored={errored}  (no jobs gated, no letters drafted)")
+    print(f"\nconsidered={len(jobs)} scored={scored} errored={errored}")
+    print(f"tiers: {fit_buckets}")
 
 
 def main() -> None:

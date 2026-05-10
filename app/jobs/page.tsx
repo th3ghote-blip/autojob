@@ -40,7 +40,7 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
   // Default ON for remote_only and hide_rejected. Use '0' to opt out.
   const remoteOnly = searchParams.remote_only !== '0'
   const hideRejected = searchParams.hide_rejected !== '0'
-  const sort = searchParams.sort || 'posted'
+  const sort = searchParams.sort || 'fit'  // default: highest qualifier score first
   const q = (searchParams.q || '').trim()
   const page = Math.max(1, parseInt(searchParams.page || '1', 10) || 1)
   const from = (page - 1) * PAGE_SIZE
@@ -76,11 +76,15 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
     .from('jobs')
     .select(
       'id, title, url, location, remote, comp_min, comp_max, contact_email, posted_at, status, skip_reason, ' +
-        'sources(slug, name, kind), companies(name, fit_score), ' +
+        'fit_score, realism_tier, qualifier_reasoning, ' +
+        'sources(slug, name, kind), companies(name), ' +
         'outreach(stage, pitch_angle, letters(id))',
       { count: 'exact' },
     )
-    .order(sort === 'posted' ? 'posted_at' : 'created_at', { ascending: false, nullsFirst: false })
+    .order(
+      sort === 'fit' ? 'fit_score' : (sort === 'posted' ? 'posted_at' : 'created_at'),
+      { ascending: false, nullsFirst: false },
+    )
     .range(from, to)
 
   if (status) query = query.eq('status', status)
@@ -94,7 +98,7 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
   const { data: rows, count } = await query
 
   let items = (rows || []) as any[]
-  if (minFit > 0) items = items.filter((r) => (r.companies?.fit_score || 0) >= minFit)
+  if (minFit > 0) items = items.filter((r) => (r.fit_score || 0) >= minFit)
   if (remoteOnly) items = items.filter(isRemoteFriendly)
   if (hideRejected) items = items.filter((r) => !matchesRejectPattern(r))
 
@@ -172,6 +176,7 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
         </Field>
         <Field label="Sort">
           <select name="sort" defaultValue={sort} className="border rounded px-2 py-1">
+            <option value="fit">fit (qualifier)</option>
             <option value="posted">posted_at</option>
             <option value="created">created_at</option>
           </select>
@@ -234,11 +239,23 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
                   <StatusPill status={r.status} />
                 </td>
                 <td className="p-2">
-                  {r.companies?.fit_score != null ? (
-                    <span className={r.companies.fit_score >= 60 ? 'text-emerald-600 font-medium' : 'text-neutral-500'}>
-                      {r.companies.fit_score}
-                    </span>
-                  ) : '—'}
+                  {r.fit_score != null ? (
+                    <div title={r.qualifier_reasoning || ''} className="cursor-help">
+                      <span className={
+                        r.fit_score >= 70 ? 'text-emerald-600 font-bold' :
+                        r.fit_score >= 50 ? 'text-emerald-700' :
+                        r.fit_score >= 30 ? 'text-neutral-600' :
+                        'text-neutral-400'
+                      }>
+                        {r.fit_score}
+                      </span>
+                      {r.realism_tier && r.realism_tier !== 'reject' && (
+                        <div className="text-[10px] text-neutral-500 leading-tight">
+                          {r.realism_tier.replace('tier_1_apply','tier 1').replace('tier_2_consulting','tier 2')}
+                        </div>
+                      )}
+                    </div>
+                  ) : <span className="text-neutral-400">—</span>}
                 </td>
                 <td className="p-2 text-xs">
                   {fmtComp(r.comp_min, r.comp_max)}
