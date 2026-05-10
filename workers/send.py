@@ -20,13 +20,16 @@ from .db import db
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--outreach", help="single-send mode: outreach UUID")
+    ap.add_argument("--test-to", help="if set, redirect the send to this address instead of the recruiter")
     ap.add_argument("--max", type=int, default=20)
     args = ap.parse_args()
 
     if args.outreach:
-        result = send_outreach(args.outreach, force=True)
+        result = send_outreach(args.outreach, force=True, test_to=args.test_to)
+        label = "TEST" if args.test_to else "sent"
         if result.get("ok"):
-            print(f"  ✓ sent {args.outreach} -> {result['share_url']}")
+            target = args.test_to or "recruiter"
+            print(f"  ✓ {label} {args.outreach} -> {target}  share_url={result.get('share_url')}")
         elif result.get("skipped"):
             print(f"  · skipped {args.outreach}: {result['reason']}")
         else:

@@ -14,6 +14,7 @@ export default function LetterActions({ outreachId, letter, jobUrl, contactEmail
   const [sendState, setSendState] = useState<'idle' | 'sending' | 'queued' | 'error'>(
     alreadySent ? 'queued' : 'idle',
   )
+  const [testState, setTestState] = useState<'idle' | 'sending' | 'queued' | 'error'>('idle')
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle')
   const [error, setError] = useState<string | null>(null)
 
@@ -50,6 +51,29 @@ export default function LetterActions({ outreachId, letter, jobUrl, contactEmail
     }
   }
 
+  async function onTestSend() {
+    if (!outreachId) return
+    const to = window.prompt('Send test to which address?', 'th3ghote@gmail.com')
+    if (!to) return
+    setTestState('sending')
+    setError(null)
+    try {
+      const r = await fetch('/api/actions/test-send-letter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outreach_id: outreachId, test_to: to }),
+      })
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}))
+        throw new Error(j.error || `${r.status}`)
+      }
+      setTestState('queued')
+    } catch (e: any) {
+      setError(e.message || String(e))
+      setTestState('error')
+    }
+  }
+
   if (!letter) return null
 
   return (
@@ -60,6 +84,20 @@ export default function LetterActions({ outreachId, letter, jobUrl, contactEmail
       >
         {copyState === 'copied' ? '✓ Copied' : '📋 Copy letter'}
       </button>
+
+      {testState === 'queued' ? (
+        <span className="text-xs text-emerald-700 px-3 py-1.5">✓ test queued · check your inbox</span>
+      ) : testState === 'sending' ? (
+        <span className="text-xs text-neutral-500 px-3 py-1.5">…dispatching test</span>
+      ) : (
+        <button
+          onClick={onTestSend}
+          className="text-xs bg-amber-100 text-amber-800 rounded px-3 py-1.5 hover:bg-amber-200"
+          title="Send to your own inbox first to preview"
+        >
+          🧪 Test send to me
+        </button>
+      )}
 
       {contactEmail ? (
         sendState === 'queued' ? (

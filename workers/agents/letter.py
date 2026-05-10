@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import re
+import secrets
 import time
 from typing import Any
 
@@ -101,6 +102,12 @@ def draft_letter(outreach_id: str) -> dict[str, Any]:
     subject = parsed.get("subject") or f"Re: {job['title']}"
     body_md = parsed.get("body_md") or result["text"]
 
+    # Materialise the share link AT DRAFT TIME so the dashboard preview shows
+    # the real URL (and a test send uses the same link as the production one).
+    share_token = _ensure_share_link(outreach_id)
+    share_url = f"{settings['app_url'].rstrip('/')}/share/{share_token}"
+    body_md = body_md.replace("{{SHARE_LINK}}", share_url)
+
     last = (
         db().table("letters").select("version")
         .eq("outreach_id", outreach_id).order("version", desc=True).limit(1).execute()
@@ -140,3 +147,19 @@ def _parse_json(text: str) -> dict[str, Any]:
     except Exception:
         m = re.search(r"\{[\s\S]+\}", text)
         return json.loads(m.group(0)) if m else {}
+
+
+def _ensure_share_link(outreach_id: str) -> str:
+    """Get-or-create a share link token for this outreach. Idempotent."""
+    existing = (
+        db().table("share_links").select("token")
+        .eq("outreach_id", outreach_id).limit(1).execute()
+    ).data
+    if existing:
+        return existing[0]["token"]
+    token = secrets.token_urlsafe(24)
+    db().table("share_links").insert({
+        "outreach_id": outreach_id,
+        "token": token,
+    }).execute()
+    return token

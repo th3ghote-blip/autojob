@@ -10,6 +10,10 @@ on:
         description: 'Single-send mode: outreach UUID to send'
         required: false
         default: ''
+      test_to:
+        description: 'Test send: redirect this send to this email instead of the recruiter'
+        required: false
+        default: ''
       max:
         description: 'Batch mode: max sends this run'
         required: false
@@ -27,6 +31,7 @@ jobs:
       GMAIL_USER: ${{ secrets.GMAIL_USER }}
       GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
       OUTREACH_INPUT: ${{ github.event.inputs.outreach_id }}
+      TEST_TO_INPUT: ${{ github.event.inputs.test_to }}
       MAX_INPUT: ${{ github.event.inputs.max }}
     steps:
       - uses: actions/checkout@v4
@@ -39,7 +44,9 @@ jobs:
       - name: Send
         shell: bash
         run: |
-          if [ -n "$OUTREACH_INPUT" ]; then
+          if [ -n "$OUTREACH_INPUT" ] && [ -n "$TEST_TO_INPUT" ]; then
+            python -m workers.send --outreach "$OUTREACH_INPUT" --test-to "$TEST_TO_INPUT"
+          elif [ -n "$OUTREACH_INPUT" ]; then
             python -m workers.send --outreach "$OUTREACH_INPUT"
           else
             MAX="${MAX_INPUT:-20}"

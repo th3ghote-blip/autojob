@@ -31,20 +31,26 @@ from ..db import db
 from ..process import log_step
 
 
-def send_outreach(outreach_id: str, *, force: bool = False) -> dict[str, Any]:
+def send_outreach(outreach_id: str, *, force: bool = False, test_to: str | None = None) -> dict[str, Any]:
     started = time.time()
     o = db().table("outreach").select("*, jobs(*), companies(*)").eq("id", outreach_id).single().execute().data
-    if not force and o["stage"] != "ready_to_send":
+    if not force and not test_to and o["stage"] != "ready_to_send":
         return {"skipped": True, "reason": f"stage is {o['stage']}"}
 
     job = o["jobs"]
     company = o["companies"]
-    to_email = job.get("contact_email")
-    if not to_email:
-        return {"skipped": True, "reason": "no contact email on job"}
+
+    # Test-send: override recipient with the operator's address.
+    if test_to:
+        to_email = test_to
+    else:
+        to_email = job.get("contact_email")
+        if not to_email:
+            return {"skipped": True, "reason": "no contact email on job"}
 
     settings = db().table("settings").select("*").eq("id", 1).single().execute().data
-    if not _within_daily_limit(settings["daily_send_limit"]):
+    # Daily limit doesn't apply to test sends.
+    if not test_to and not _within_daily_limit(settings["daily_send_limit"]):
         return {"skipped": True, "reason": "daily send limit reached"}
 
     letter = (
@@ -55,15 +61,25 @@ def send_outreach(outreach_id: str, *, force: bool = False) -> dict[str, Any]:
         return {"skipped": True, "reason": "no letter drafted yet"}
     letter = letter[0]
 
-    share_token = secrets.token_urlsafe(24)
+    # Get-or-create the share link (letter.py already does this at draft time,
+    # so most of the time we just look it up).
+    existing = (
+        db().table("share_links").select("token")
+        .eq("outreach_id", outreach_id).limit(1).execute()
+    ).data
+    if existing:
+        share_token = existing[0]["token"]
+    else:
+        share_token = secrets.token_urlsafe(24)
+        db().table("share_links").insert({
+            "outreach_id": outreach_id,
+            "token": share_token,
+        }).execute()
     share_url = f"{settings['app_url'].rstrip('/')}/share/{share_token}"
-    db().table("share_links").insert({
-        "outreach_id": outreach_id,
-        "token": share_token,
-    }).execute()
 
     body_md = (letter["body_md"] or "").replace("{{SHARE_LINK}}", share_url)
     body_html = md.markdown(body_md, extensions=["extra", "nl2br"])
+    body_html = _wrap_in_email_shell(body_html, subject=letter["subject"])
 
     # Reserve a send_logs row early so we can use its id in tracking URLs.
     send_log = db().table("send_logs").insert({
@@ -72,29 +88,29 @@ def send_outreach(outreach_id: str, *, force: bool = False) -> dict[str, Any]:
         "job_id": job["id"],
         "company_id": company["id"],
         "to_email": to_email,
-        "to_name": job.get("contact_name"),
-        "subject": letter["subject"],
+        "to_name": "TEST SEND" if test_to else job.get("contact_name"),
+        "subject": ("[TEST] " if test_to else "") + letter["subject"],
         "status": "sent",
     }).execute().data[0]
 
     body_html = _wrap_links(body_html, send_log_id=send_log["id"], share_token=share_token, app_url=settings["app_url"])
     body_html += _tracking_pixel(send_log["id"], settings["app_url"])
-    body_html += "\n<br><br>" + (settings.get("email_signature_html") or "")
 
     msg = _build_message(
         from_name=settings["sender_name"],
         from_email=settings["from_email"],
         reply_to=settings.get("reply_to_email") or settings["from_email"],
         to_email=to_email,
-        to_name=job.get("contact_name"),
-        subject=letter["subject"],
+        to_name=None if test_to else job.get("contact_name"),
+        subject=("[TEST] " if test_to else "") + letter["subject"],
         html=body_html,
     )
 
     try:
         _smtp_send(msg, from_email=settings["from_email"])
-        db().table("letters").update({"sent": True}).eq("id", letter["id"]).execute()
-        db().table("outreach").update({"stage": "sent", "sent_at": "now()"}).eq("id", outreach_id).execute()
+        if not test_to:
+            db().table("letters").update({"sent": True}).eq("id", letter["id"]).execute()
+            db().table("outreach").update({"stage": "sent", "sent_at": "now()"}).eq("id", outreach_id).execute()
         log_step(
             outreach_id,
             kind="sent",
@@ -148,6 +164,21 @@ def _smtp_send(msg: MIMEMultipart, *, from_email: str) -> None:
 def _tracking_pixel(send_log_id: str, app_url: str) -> str:
     pixel = f"{app_url.rstrip('/')}/api/track/open/{send_log_id}.gif"
     return f'<img src="{pixel}" alt="" width="1" height="1" style="display:none">'
+
+
+def _wrap_in_email_shell(body_html: str, *, subject: str | None = None) -> str:
+    """Wrap rendered markdown in a clean, email-client-safe HTML shell.
+
+    Inline styles only (Gmail strips <style> blocks). Sticks to a single column
+    container, comfortable line-height, and a primary-color button style for
+    links inside the body so the share-link CTA stands out.
+    """
+    return (
+        '<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;'
+        'font-size:15px;line-height:1.55;color:#1f2937;max-width:560px;">'
+        + body_html
+        + "</div>"
+    )
 
 
 _HREF_RE = re.compile(r'href="([^"]+)"', re.I)
