@@ -29,30 +29,65 @@ from .claude import complete
 SYSTEM_TEMPLATE = """You are writing a brief, sharp outreach email from {name}, a solo full-stack
 engineer / founder of AiAppGenius. The recipient is a recruiter or hiring manager at the company below.
 
-CRITICAL: BEFORE writing, read the job description carefully and OBEY any explicit application
-instructions you find. Recruiters often add gates like:
+═══════════════════════════════════════════════════════════════════════════
+HARD HONESTY RULES — VIOLATING THESE GETS THE OPERATOR CAUGHT IN INTERVIEW
+═══════════════════════════════════════════════════════════════════════════
+
+1. The operator's PROFILE (provided in the user message) lists his actual stack
+   and edges. **NEVER claim a skill, framework, language, or tool that is not
+   visible in the profile.** If the company's stack (Django, Rails, Go, .NET,
+   Flutter, MongoDB, Kubernetes, Rust, etc.) is not in his profile, DO NOT say
+   he uses it, has shipped with it, has it "in scope", or is "fluent in" it.
+
+2. When the operator's stack and the company's stack differ, frame honestly:
+     - "I haven't shipped <X> in production but I ramp fast on adjacent tools"
+     - "My recent work is <Y>; same shape of problem, different stack"
+     - Or just don't mention the mismatched tech at all and pitch on the
+       PROBLEM (workflow design, customer engineering, shipping speed).
+
+3. Do NOT invent past projects, customers, geographies (e.g. "LATAM trafficking
+   corridors"), revenue, or experience. Use only edges + brand context from the
+   profile, plus what the post itself says.
+
+4. If after reading the post you genuinely can't find a defensible bridge from
+   the operator's edges to what they need, set body_md = "" and put your
+   reasoning in the `skipped_reason` field. The orchestrator will mark this
+   outreach as "lost" instead of sending a fabricated letter.
+
+═══════════════════════════════════════════════════════════════════════════
+APPLY-INSTRUCTION GATES — OBEY THEM EXACTLY
+═══════════════════════════════════════════════════════════════════════════
+Recruiters add filters like:
   - "Use this exact subject line: `[CODE-X] HN Application`" → use it verbatim
   - "Include the word 'Atlas' in your first sentence" → include it naturally
-  - "Send your resume to X" → mention attaching/sharing it
   - "Tell us what you would build in your first week" → answer concretely
-  - "Emails without X are auto-archived" → take seriously, the gate is real
-If you find such instructions, follow them PRECISELY. Missing them gets the email deleted unread.
+    (but ONLY in terms of skills the operator actually has — see rule 1)
+  - "Emails without X are auto-archived" → take seriously
+Missing these gets the email deleted unread.
 
-Tone: confident but not boastful, specific to the company's situation, zero generic LinkedIn-speak.
-90-180 words MAX (longer is OK if the post explicitly asked for "what you'd build first week" type
-content, but stay sharp). Do NOT pad. Do NOT use "exciting" or "passionate". Do NOT list edges as
-bullets — weave 1-2 of them into prose where they connect to the company's actual stated need.
+═══════════════════════════════════════════════════════════════════════════
+TONE & STRUCTURE
+═══════════════════════════════════════════════════════════════════════════
+Confident but not boastful, specific to the company's stated situation, zero
+generic LinkedIn-speak. 90-180 words MAX (longer OK only if the post asked
+for "first week" content). Do NOT pad. Do NOT use "exciting" or "passionate".
+Do NOT list edges as bullets — weave 1-2 into prose where they connect to a
+real, stated need.
 
-Close with a CTA that points to {{SHARE_LINK}} — a page that demonstrates the AI agent that found
-this role and personalised this email. Phrase it as proof of the work, not as a generic link.
+Close with a CTA pointing to {{SHARE_LINK}} — a page demonstrating the AI agent
+that found this role. Phrase it as proof of the work, not a generic link.
 
 Pitch angle for THIS email: {angle_instruction}
 
-Reply with ONLY a JSON object — no prose, no markdown, no code fences:
+═══════════════════════════════════════════════════════════════════════════
+OUTPUT — JSON only, no prose, no markdown, no code fences
+═══════════════════════════════════════════════════════════════════════════
 {{
-  "subject": string,        // <= 90 chars, EXACT match if the post mandated a subject line
-  "body_md": string,        // markdown, MUST contain the literal token {{{{SHARE_LINK}}}} in a CTA line
-  "instructions_followed": string  // 1-2 sentences listing the application requirements you obeyed (or "none found")
+  "subject": string,
+  "body_md": string,                  // MUST contain {{{{SHARE_LINK}}}} on a CTA line. Empty string ("") if you bailed on honesty grounds.
+  "instructions_followed": string,    // 1-2 sentences listing application gates you obeyed, or "none found"
+  "stack_overlap": string,            // 1 sentence: which of the post's tech the operator actually has, plus what's missing
+  "skipped_reason": string            // empty unless body_md is "" — then explain why no honest bridge exists
 }}"""
 
 
@@ -113,7 +148,27 @@ def draft_letter(outreach_id: str) -> dict[str, Any]:
     parsed = _parse_json(result["text"])
 
     subject = parsed.get("subject") or f"Re: {job['title']}"
-    body_md = parsed.get("body_md") or result["text"]
+    body_md = (parsed.get("body_md") or "").strip()
+    skipped_reason = (parsed.get("skipped_reason") or "").strip()
+
+    # Bail if Claude couldn't find an honest bridge between operator + role.
+    if not body_md and skipped_reason:
+        db().table("outreach").update({
+            "stage": "lost",
+            "lost_reason": f"no honest bridge: {skipped_reason}"[:500],
+        }).eq("id", outreach_id).execute()
+        log_step(
+            outreach_id, kind="letter_drafted",
+            title="Letter NOT drafted — no honest bridge",
+            summary=f"**Reason:** {skipped_reason}\n\n**Stack overlap:** {parsed.get('stack_overlap', '—')}\n\n_The agent declined to write a letter because it could not connect the operator's actual skills to what the role needs without overclaiming._",
+            inputs={"angle": angle},
+            outputs=parsed,
+            model=result["model"],
+            tokens_used=result["tokens_in"] + result["tokens_out"],
+            duration_ms=int((time.time() - started) * 1000),
+            visible_to_recruiter=False,
+        )
+        return {"skipped": True, "reason": skipped_reason}
 
     # Materialise the share link AT DRAFT TIME so the dashboard preview shows
     # the real URL (and a test send uses the same link as the production one).
