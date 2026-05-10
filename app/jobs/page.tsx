@@ -105,7 +105,7 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
   // De-duplicate (company, title) — Greenhouse/Lever post the same role
   // across many cities as separate listings. Keep the most-recent variant
   // and merge the others' locations + job_ids into a "variants" field.
-  items = dedupeByCompanyAndTitle(items)
+  items = dedupeByCompanyAndTitle(items, sort)
 
   // List of sources for the filter dropdown.
   const { data: sources } = await sb.from('sources').select('slug, name').order('slug')
@@ -340,7 +340,7 @@ function matchesRejectPattern(r: any): boolean {
   return REJECT_TITLE_RE.some((re) => re.test(t))
 }
 
-function dedupeByCompanyAndTitle(rows: any[]): any[] {
+function dedupeByCompanyAndTitle(rows: any[], sort: string = 'fit'): any[] {
   const groups = new Map<string, any[]>()
   for (const r of rows) {
     const company = (r.companies?.name || '').trim().toLowerCase()
@@ -355,28 +355,32 @@ function dedupeByCompanyAndTitle(rows: any[]): any[] {
       merged.push(variants[0])
       continue
     }
-    // Sort newest first; keep the first as primary.
+    // Within a duplicate group: pick the highest fit_score (or newest if tied / all null).
     variants.sort((a, b) => {
+      const fa = a.fit_score ?? -1
+      const fb = b.fit_score ?? -1
+      if (fa !== fb) return fb - fa
       const da = a.posted_at ? new Date(a.posted_at).getTime() : 0
       const db = b.posted_at ? new Date(b.posted_at).getTime() : 0
       return db - da
     })
     const primary = variants[0]
-    const locs = Array.from(
-      new Set(
-        variants
-          .map((v) => (v.location || '').trim())
-          .filter(Boolean),
-      ),
-    )
     primary._variantCount = variants.length
-    primary._variantLocations = locs
+    primary._variantLocations = Array.from(
+      new Set(variants.map((v) => (v.location || '').trim()).filter(Boolean)),
+    )
     merged.push(primary)
   }
-  // Preserve original (newest-first) ordering of the kept primaries.
+  // Re-sort the deduped primaries by the user's chosen sort field.
   merged.sort((a, b) => {
-    const da = a.posted_at ? new Date(a.posted_at).getTime() : 0
-    const db = b.posted_at ? new Date(b.posted_at).getTime() : 0
+    if (sort === 'fit') {
+      const fa = a.fit_score ?? -1
+      const fb = b.fit_score ?? -1
+      return fb - fa
+    }
+    const fieldA = sort === 'created' ? 'created_at' : 'posted_at'
+    const da = a[fieldA] ? new Date(a[fieldA]).getTime() : 0
+    const db = b[fieldA] ? new Date(b[fieldA]).getTime() : 0
     return db - da
   })
   return merged
