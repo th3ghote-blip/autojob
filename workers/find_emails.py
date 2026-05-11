@@ -67,24 +67,16 @@ def main() -> None:
 
     for c in companies:
         site = c.get("website") or c.get("domain")
-        if not site:
-            db().table("companies").update({
-                "contact_email_checked_at": "now()",
-            }).eq("id", c["id"]).execute()
-            no_match += 1
-            continue
+        result = None
 
-        try:
-            result = find_company_email(name=c.get("name"), domain=c.get("domain"), website=c.get("website"))
-        except Exception as e:  # noqa: BLE001
-            print(f"  ! {c['name']}: {e}")
-            errored += 1
-            db().table("companies").update({
-                "contact_email_checked_at": "now()",
-            }).eq("id", c["id"]).execute()
-            continue
+        # Stage 1: website scrape (skip if we don't have a site to scrape).
+        if site:
+            try:
+                result = find_company_email(name=c.get("name"), domain=c.get("domain"), website=c.get("website"))
+            except Exception as e:  # noqa: BLE001
+                print(f"  ! {c['name']}: site-scrape error: {e}")
 
-        # If website scrape returned nothing, fall back to GitHub commit emails.
+        # Stage 2: GitHub commit fallback (only needs the name).
         if not result:
             try:
                 gh = find_company_email_github(name=c.get("name"), domain=c.get("domain"))
@@ -92,11 +84,12 @@ def main() -> None:
                     result = {
                         "email": gh["email"],
                         "source_url": gh["source_url"],
-                        "priority": 50,  # mid-tier — between careers@ (low number) and generic info@
+                        "priority": 50,
                     }
-                    print(f"  ↳ github fallback: {gh.get('ranked_via')} from {gh['source_url']}")
+                    print(f"  ↳ {c['name']}: github → {gh['email']}  ({gh.get('ranked_via')}, repos={gh.get('repos_scanned')})")
             except Exception as e:  # noqa: BLE001
-                print(f"  ! github fallback for {c['name']}: {e}")
+                print(f"  ! {c['name']}: github-fallback error: {e}")
+                errored += 1
 
         if result:
             updates = {
