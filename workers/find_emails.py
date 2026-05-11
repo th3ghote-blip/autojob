@@ -15,6 +15,7 @@ import argparse
 import time
 
 from .agents.email_finder import find_company_email
+from .agents.email_finder_github import find_company_email_github
 from .db import db
 
 
@@ -82,6 +83,20 @@ def main() -> None:
                 "contact_email_checked_at": "now()",
             }).eq("id", c["id"]).execute()
             continue
+
+        # If website scrape returned nothing, fall back to GitHub commit emails.
+        if not result:
+            try:
+                gh = find_company_email_github(name=c.get("name"), domain=c.get("domain"))
+                if gh:
+                    result = {
+                        "email": gh["email"],
+                        "source_url": gh["source_url"],
+                        "priority": 50,  # mid-tier — between careers@ (low number) and generic info@
+                    }
+                    print(f"  ↳ github fallback: {gh.get('ranked_via')} from {gh['source_url']}")
+            except Exception as e:  # noqa: BLE001
+                print(f"  ! github fallback for {c['name']}: {e}")
 
         if result:
             updates = {
