@@ -68,7 +68,20 @@ def profile_for_prompt() -> str:
     lines: list[str] = []
     lines.append(f"NAME: {p['identity']['name']} (brand: {p['identity']['brand']})")
     lines.append(f"BASED: {p['identity']['base']}")
-    lines.append(f"LANGUAGES: {', '.join(p['identity']['languages'])}")
+    # Schema can be either legacy `languages: [...]` or new
+    # `native_language` + `bonus_languages: [...]`. Support both.
+    ident = p["identity"]
+    if "languages" in ident:
+        lines.append(f"LANGUAGES: {', '.join(ident['languages'])}")
+    else:
+        native = ident.get("native_language", "English")
+        bonus = ident.get("bonus_languages") or []
+        lines.append(f"NATIVE LANGUAGE: {native}")
+        if bonus:
+            lines.append(
+                f"BONUS LANGUAGES (only invoke when company explicitly has matching geo/customer signal): "
+                f"{', '.join(bonus)}"
+            )
     lines.append(f"REMOTE OK: {p['geography']['remote_ok']}; ON-SITE OK IN: {', '.join(p['geography']['on_site_ok_in'])}")
     lines.append(
         f"COMP FLOORS: full-time ${p['comp']['full_time_min_usd_year']:,}/yr, "
