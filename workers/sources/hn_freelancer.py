@@ -22,9 +22,11 @@ from .base import NormalizedJob, RawListing, Source
 
 
 _FLOOR_SECS = int(_time.time()) - 60 * 60 * 24 * 95
+# Dropping the literal "?" chars from the query — they confuse the URL-encoder
+# round-trip and httpx ends up sending a malformed query string.
 ALGOLIA_SEARCH = (
     "https://hn.algolia.com/api/v1/search_by_date"
-    "?query=Ask+HN%3A+Freelancer%3F+Seeking+freelancer%3F"
+    "?query=Ask+HN+Freelancer+Seeking+freelancer"
     "&tags=story"
     "&hitsPerPage=8"
     f"&numericFilters=created_at_i%3E{_FLOOR_SECS}"
