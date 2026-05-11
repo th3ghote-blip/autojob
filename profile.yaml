@@ -7,7 +7,12 @@ identity:
   name: Andrew
   brand: AiAppGenius
   base: "Costa del Sol, Spain (near Gibraltar)"
-  languages: [English, "Portuguese (Brazilian)", Spanish]
+  # English is native and primary; PT-BR/ES are situational bonuses, NOT
+  # something to lead with on every letter. The letter writer should only
+  # mention them when the target company has LATAM, Brazilian, Iberian or
+  # Portuguese-speaking customers/operations.
+  native_language: English
+  bonus_languages: ["Portuguese (Brazilian)", "Spanish"]
 
 geography:
   remote_ok: true
@@ -34,7 +39,7 @@ edges:
   - "Tight feedback loops: ships, watches users, iterates in hours not weeks"
   - "Customizes per-persona — adapts the product around the operator's workflow"
   - "Workflow redesign, not feature bolt-on — compresses 10-step processes into 2"
-  - "Trilingual: English + BR Portuguese + Spanish — opens LATAM, Iberia, Brazil deals"
+  - "English-native. Additional bonus: BR Portuguese + Spanish — only worth mentioning if the company has LATAM, Brazilian or Iberian customers/ops; otherwise leave out."
   - "Past industries: teaching, trading, retail, entertainment — broad domain fluency"
 
 # ─── Roles ──────────────────────────────────────────────────────────────────
@@ -55,7 +60,7 @@ roles:
     - Founder's Associate / Chief of Staff (technical, <30 people)
     - Founding engineer at BOOTSTRAPPED / pre-seed / non-engineering-founder co
     - Any role explicitly mentioning Base44 or "AI app builder"
-    - Any technical role at a LATAM / Brazil-focused company (Portuguese edge)
+    - Any technical role at a LATAM / Brazil / Iberia-focused company (bonus language edge — but English roles equally welcome)
 
   tier_2_pitch_consulting:
     - Founding engineer at YC / venture-backed AI startup

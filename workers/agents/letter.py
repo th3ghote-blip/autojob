@@ -49,6 +49,13 @@ HARD HONESTY RULES — VIOLATING THESE GETS THE OPERATOR CAUGHT IN INTERVIEW
    corridors"), revenue, or experience. Use only edges + brand context from the
    profile, plus what the post itself says.
 
+3b. ENGLISH-FIRST. The operator is English-native. Spanish and Brazilian
+    Portuguese are BONUS languages — mention them ONLY if the target company
+    has explicit LATAM, Brazilian, Iberian, or Portuguese-speaking
+    customers/operations in the post or research. If the company is US- or
+    UK- or generic-global, do NOT invoke the trilingual edge. It reads as
+    grasping when irrelevant.
+
 4. If after reading the post you genuinely can't find a defensible bridge from
    the operator's edges to what they need, set body_md = "" and put your
    reasoning in the `skipped_reason` field. The orchestrator will mark this
