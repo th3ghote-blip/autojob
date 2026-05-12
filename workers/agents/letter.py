@@ -126,6 +126,29 @@ ANGLE_INSTRUCTIONS = {
     ),
 }
 
+DELIVERY_INSTRUCTIONS = {
+    "email": (
+        "This will be sent as an email. Open with 'Hi [name],' or 'Hi,' if no name available. "
+        "Use natural email cadence (short paragraphs, easy to skim on a phone). The share link "
+        "appears on its own line as a CTA. End with — Andrew."
+    ),
+    "form": (
+        "This will be PASTED into an ATS application form's cover-letter textarea (Greenhouse, Lever, "
+        "Ashby). Recruiters read it inside their ATS dashboard with no formatting. Therefore:\n"
+        "  - NO greeting line ('Hi [name],') — start with the first content sentence directly\n"
+        "  - NO signature/sign-off ('Andrew', '— Andrew')\n"
+        "  - 80-140 words MAX, single coherent block. Form fields like name/email/LinkedIn are "
+        "collected separately, you don't need to introduce yourself by name\n"
+        "  - Render the share link as a postscript-style line at the very end, plain URL, "
+        "labelled so it's obvious what it is — e.g. exactly:\n"
+        "      Built by the agent that found this role: {{SHARE_LINK}}\n"
+        "    or:\n"
+        "      How this letter was produced: {{SHARE_LINK}}\n"
+        "  - Do NOT phrase the share link as a question or imperative — recruiters reading 100 "
+        "applications skim, they don't click commands"
+    ),
+}
+
 
 def draft_letter(outreach_id: str) -> dict[str, Any]:
     started = time.time()
@@ -136,11 +159,16 @@ def draft_letter(outreach_id: str) -> dict[str, Any]:
     profile = load_profile()
     angle = o.get("pitch_angle") or settings.get("pitch_default") or "consulting"
 
+    # Delivery method: if no contact_email on the job, recruiter will read this
+    # inside their ATS form (Greenhouse/Lever/Ashby textarea) — different format.
+    delivery = "email" if (job.get("contact_email") or "").strip() else "form"
+
     angle_instruction = ANGLE_INSTRUCTIONS.get(angle, ANGLE_INSTRUCTIONS["consulting"])
+    delivery_instruction = DELIVERY_INSTRUCTIONS[delivery]
     sys_prompt = SYSTEM_TEMPLATE.format(
         name=profile["identity"]["name"],
         angle_instruction=angle_instruction,
-    )
+    ) + "\n\nDELIVERY METHOD: " + delivery_instruction
 
     user_msg = (
         "OPERATOR PROFILE:\n" + profile_for_prompt() + "\n\n"
