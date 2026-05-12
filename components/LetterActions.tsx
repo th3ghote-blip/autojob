@@ -16,6 +16,7 @@ export default function LetterActions({ outreachId, letter, jobUrl, contactEmail
   const [sendState, setSendState] = useState<'idle' | 'sending' | 'queued' | 'error'>('idle')
   const [testState, setTestState] = useState<'idle' | 'sending' | 'queued' | 'error'>('idle')
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle')
+  const [markState, setMarkState] = useState<'idle' | 'saving' | 'done' | 'error'>(alreadySent ? 'done' : 'idle')
   const [error, setError] = useState<string | null>(null)
 
   async function onCopy() {
@@ -54,6 +55,32 @@ export default function LetterActions({ outreachId, letter, jobUrl, contactEmail
     } catch (e: any) {
       setError(e.message || String(e))
       setSendState('error')
+    }
+  }
+
+  async function onMarkSent() {
+    if (!outreachId) return
+    const note = window.prompt(
+      "Mark this letter as sent? Optionally paste the apply URL or any note (you can leave blank):",
+      "",
+    )
+    if (note === null) return  // user cancelled
+    setMarkState('saving')
+    setError(null)
+    try {
+      const r = await fetch('/api/actions/mark-sent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outreach_id: outreachId, note }),
+      })
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}))
+        throw new Error(j.error || `${r.status}`)
+      }
+      setMarkState('done')
+    } catch (e: any) {
+      setError(e.message || String(e))
+      setMarkState('error')
     }
   }
 
@@ -127,16 +154,31 @@ export default function LetterActions({ outreachId, letter, jobUrl, contactEmail
           </button>
         )
       ) : (
-        jobUrl && (
-          <a
-            href={jobUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs bg-blue-600 text-white rounded px-3 py-1.5 hover:opacity-90 inline-block"
-          >
-            🔗 Open apply page ↗
-          </a>
-        )
+        <>
+          {jobUrl && (
+            <a
+              href={jobUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs bg-blue-600 text-white rounded px-3 py-1.5 hover:opacity-90 inline-block"
+            >
+              🔗 Open apply page ↗
+            </a>
+          )}
+          {markState === 'done' ? (
+            <span className="text-xs text-emerald-700 px-3 py-1.5">✓ marked sent</span>
+          ) : markState === 'saving' ? (
+            <span className="text-xs text-neutral-500 px-3 py-1.5">…saving</span>
+          ) : (
+            <button
+              onClick={onMarkSent}
+              className="text-xs bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 rounded px-3 py-1.5 hover:bg-emerald-500/25"
+              title="Click after you've pasted this letter into the company's apply form and submitted"
+            >
+              ✓ Mark as sent (form apply)
+            </button>
+          )}
+        </>
       )}
 
       {sendState === 'error' && (
