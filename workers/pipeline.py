@@ -25,15 +25,18 @@ from .process import log_step
 
 
 def _new_jobs(limit: int) -> list[dict]:
-    """Score-worthy jobs: status=new, has contact_email (so we can actually
-    send), and posted within the last ~60 days. Ordered most-recent first.
+    """Score-worthy jobs: status=new, posted within ~60 days, not yet scored.
+
+    NOTE: we no longer require contact_email. ATS jobs (Greenhouse/Lever/Ashby)
+    don't expose recruiter emails — the operator applies via their form using
+    the AI-drafted letter. The qualifier scores them so the dashboard can rank
+    them; the "send" flow handles email vs apply-page UX downstream.
     """
     from datetime import datetime, timedelta, timezone
     cutoff = (datetime.now(timezone.utc) - timedelta(days=60)).isoformat()
     return (
         db().table("jobs").select("*")
         .eq("status", "new")
-        .not_.is_("contact_email", "null")
         .gte("posted_at", cutoff)
         .is_("qualifier_checked_at", "null")
         .order("posted_at", desc=True).limit(limit).execute()
