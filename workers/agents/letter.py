@@ -207,7 +207,13 @@ def draft_letter(outreach_id: str) -> dict[str, Any]:
         "tokens_out": result["tokens_out"],
     }).execute().data[0]
 
-    db().table("outreach").update({"stage": "ready_to_send"}).eq("id", outreach_id).execute()
+    # Only bump stage forward to ready_to_send if it hasn't already progressed.
+    # Re-drafting an already-sent letter must NOT yank the card back to the
+    # "ready" column.
+    SENT_STAGES = {"sent", "opened", "replied", "demo_booked", "won", "lost"}
+    cur_stage = (db().table("outreach").select("stage").eq("id", outreach_id).single().execute().data or {}).get("stage")
+    if cur_stage not in SENT_STAGES:
+        db().table("outreach").update({"stage": "ready_to_send"}).eq("id", outreach_id).execute()
 
     # Idempotent step logging: if a letter_drafted step already exists for this
     # outreach, update it in place. Re-drafts shouldn't pollute the trail with
