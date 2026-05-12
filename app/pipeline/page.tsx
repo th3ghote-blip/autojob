@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import Shell from '@/components/Shell'
+import DeleteOutreachButton from '@/components/DeleteOutreachButton'
 import { isOwner } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 
@@ -98,11 +99,13 @@ function Column({ stage, cards }: { stage: string; cards: Card[] }) {
 
 function Card({ card }: { card: Card }) {
   return (
-    <Link
-      href={`/jobs/${card.job_id}`}
-      className="block bg-white/[0.04] border border-white/10 rounded-lg p-2 hover:bg-white/[0.07] hover:border-violet-500/40 transition-colors"
-    >
-      <div className="text-sm font-medium leading-tight line-clamp-2 text-slate-100">{card.job_title}</div>
+    <div className="relative group">
+      <DeleteOutreachButton outreachId={card.outreach_id} variant="icon" />
+      <Link
+        href={`/jobs/${card.job_id}`}
+        className="block bg-white/[0.04] border border-white/10 rounded-lg p-2 hover:bg-white/[0.07] hover:border-violet-500/40 transition-colors"
+      >
+        <div className="text-sm font-medium leading-tight line-clamp-2 text-slate-100 pr-5">{card.job_title}</div>
       <div className="text-xs text-slate-400 mt-1">{card.company_name}</div>
       <div className="flex items-center justify-between mt-2 text-[10px] text-slate-500">
         <span className="px-1.5 py-0.5 bg-white/[0.06] rounded font-mono text-slate-400">{card.source_slug}</span>
@@ -115,6 +118,7 @@ function Card({ card }: { card: Card }) {
       {card.last_share_click_at && (
         <div className="mt-1 text-[10px] text-emerald-400 font-medium">📨 demo opened</div>
       )}
-    </Link>
+      </Link>
+    </div>
   )
 }

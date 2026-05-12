@@ -3,6 +3,7 @@ import { marked } from 'marked'
 import Shell from '@/components/Shell'
 import LetterActions from '@/components/LetterActions'
 import EditableContact from '@/components/EditableContact'
+import DeleteOutreachButton from '@/components/DeleteOutreachButton'
 import { isOwner } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 
@@ -115,6 +116,11 @@ export default async function JobDetailPage({ params }: { params: { id: string }
               /></div>
               <div className="text-slate-400">Fit: <span className="text-emerald-400 font-medium">{job.fit_score ?? '—'}</span></div>
             </div>
+            {outreach?.id && (
+              <div className="mt-4 pt-4 border-t border-white/5">
+                <DeleteOutreachButton outreachId={outreach.id} redirectTo="/pipeline" />
+              </div>
+            )}
           </div>
 
           <div className="bg-white/[0.03] border border-white/10 rounded-xl p-5">
