@@ -15,6 +15,8 @@ type Search = {
   posted_within?: string
   remote_only?: string
   hide_rejected?: string
+  hide_sent?: string
+  hide_archived?: string
   q?: string
   page?: string
   sort?: string
@@ -37,9 +39,11 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
   // Default ON — without an email there's nothing to send. Use '0' to browse no-email ATS roles.
   const hasEmail = searchParams.has_email !== '0'
   const postedWithin = searchParams.posted_within ?? '30'  // default: last 30 days (HN threads stay relevant ~3-4 weeks)
-  // Default ON for remote_only and hide_rejected. Use '0' to opt out.
+  // Default ON for remote_only, hide_rejected, hide_sent, hide_archived. Use '0' to opt out.
   const remoteOnly = searchParams.remote_only !== '0'
   const hideRejected = searchParams.hide_rejected !== '0'
+  const hideSent = searchParams.hide_sent !== '0'
+  const hideArchived = searchParams.hide_archived !== '0'
   const sort = searchParams.sort || 'fit'  // default: highest qualifier score first
   const q = (searchParams.q || '').trim()
   const page = Math.max(1, parseInt(searchParams.page || '1', 10) || 1)
@@ -88,6 +92,7 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
     .range(from, to)
 
   if (status) query = query.eq('status', status)
+  else if (hideArchived) query = query.neq('status', 'archived')  // default: hide archived rows
   if (sourceId) query = query.eq('source_id', sourceId)
   if (hasEmail) query = query.not('contact_email', 'is', null)
   if (postedAfter) query = query.gte('posted_at', postedAfter)
@@ -101,6 +106,7 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
   if (minFit > 0) items = items.filter((r) => (r.fit_score || 0) >= minFit)
   if (remoteOnly) items = items.filter(isRemoteFriendly)
   if (hideRejected) items = items.filter((r) => !matchesRejectPattern(r))
+  if (hideSent) items = items.filter((r) => !alreadyInSentFunnel(r))
 
   // De-duplicate (company, title) — Greenhouse/Lever post the same role
   // across many cities as separate listings. Keep the most-recent variant
@@ -162,6 +168,18 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
         </Field>
         <Field label="Hide reject titles">
           <select name="hide_rejected" defaultValue={hideRejected ? '1' : '0'} className="rounded-md px-2 py-1">
+            <option value="1">yes (default)</option>
+            <option value="0">show all</option>
+          </select>
+        </Field>
+        <Field label="Hide already sent">
+          <select name="hide_sent" defaultValue={hideSent ? '1' : '0'} className="rounded-md px-2 py-1">
+            <option value="1">yes (default)</option>
+            <option value="0">show all</option>
+          </select>
+        </Field>
+        <Field label="Hide archived">
+          <select name="hide_archived" defaultValue={hideArchived ? '1' : '0'} className="rounded-md px-2 py-1">
             <option value="1">yes (default)</option>
             <option value="0">show all</option>
           </select>
@@ -338,6 +356,12 @@ const REJECT_TITLE_RE = [
 function matchesRejectPattern(r: any): boolean {
   const t = r.title || ''
   return REJECT_TITLE_RE.some((re) => re.test(t))
+}
+
+const SENT_STAGES = new Set(['sent', 'opened', 'replied', 'demo_booked', 'won'])
+function alreadyInSentFunnel(r: any): boolean {
+  if (!r?.outreach || r.outreach.length === 0) return false
+  return r.outreach.some((o: any) => SENT_STAGES.has(o.stage))
 }
 
 function dedupeByCompanyAndTitle(rows: any[], sort: string = 'fit'): any[] {
