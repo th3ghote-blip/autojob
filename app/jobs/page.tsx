@@ -36,8 +36,10 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
   const status = searchParams.status || ''
   const source = searchParams.source || ''
   const minFit = parseInt(searchParams.min_fit || '0', 10) || 0
-  // Default ON — without an email there's nothing to send. Use '0' to browse no-email ATS roles.
-  const hasEmail = searchParams.has_email !== '0'
+  // Default OFF now — ATS jobs (Greenhouse/Lever/Ashby) don't expose recruiter
+  // emails but you can still apply via the form (Copy letter → paste → Mark sent).
+  // Hiding them by default was concealing most of the real lead pool.
+  const hasEmail = searchParams.has_email === '1'
   const postedWithin = searchParams.posted_within ?? '30'  // default: last 30 days (HN threads stay relevant ~3-4 weeks)
   // Default ON for remote_only, hide_rejected, hide_sent, hide_archived. Use '0' to opt out.
   const remoteOnly = searchParams.remote_only !== '0'
@@ -120,11 +122,12 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
     <Shell active="jobs">
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-100">Jobs</h1>
-        <div className="text-sm text-slate-400 flex gap-4">
-          <span>total: <b className="text-slate-100">{stats.total}</b></span>
-          <span>new: <b className="text-slate-100">{stats.new}</b></span>
-          <span className="text-emerald-400">qualified: <b>{stats.qualified}</b></span>
-          <span className="text-slate-500">skipped: <b>{stats.skipped}</b></span>
+        <div className="text-sm text-slate-400 flex gap-4 items-baseline">
+          <span>pool: <b className="text-slate-100">{stats.total.toLocaleString()}</b></span>
+          <span>scored: <b className="text-slate-100">{stats.scored.toLocaleString()}</b></span>
+          <span className="text-emerald-400">tier 1: <b>{stats.tier1}</b></span>
+          <span className="text-violet-400">tier 2: <b>{stats.tier2}</b></span>
+          <span className="text-pink-400">drafted: <b>{stats.drafted}</b></span>
         </div>
       </div>
 
@@ -156,8 +159,8 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
         </Field>
         <Field label="Has email">
           <select name="has_email" defaultValue={hasEmail ? '1' : '0'} className="rounded-md px-2 py-1">
-            <option value="1">yes (default)</option>
-            <option value="0">show all</option>
+            <option value="0">show all (default)</option>
+            <option value="1">yes only</option>
           </select>
         </Field>
         <Field label="Remote OK only">
@@ -302,17 +305,19 @@ export default async function JobsListPage({ searchParams }: { searchParams: Sea
 }
 
 async function fetchStats(sb: ReturnType<typeof supabaseAdmin>) {
-  const [total, n, q, s] = await Promise.all([
+  const [total, scored, tier1, tier2, drafted] = await Promise.all([
     sb.from('jobs').select('id', { count: 'exact', head: true }),
-    sb.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'new'),
+    sb.from('jobs').select('id', { count: 'exact', head: true }).not('qualifier_checked_at', 'is', null),
+    sb.from('jobs').select('id', { count: 'exact', head: true }).eq('realism_tier', 'tier_1_apply'),
+    sb.from('jobs').select('id', { count: 'exact', head: true }).eq('realism_tier', 'tier_2_consulting'),
     sb.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'qualified'),
-    sb.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'skipped'),
   ])
   return {
     total: total.count || 0,
-    new: n.count || 0,
-    qualified: q.count || 0,
-    skipped: s.count || 0,
+    scored: scored.count || 0,
+    tier1: tier1.count || 0,
+    tier2: tier2.count || 0,
+    drafted: drafted.count || 0,
   }
 }
 
