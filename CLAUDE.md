@@ -72,7 +72,7 @@ or the operator's preferences.
 | `find-emails.yml` | Tue + Fri 06:30 UTC | website scrape + GitHub commit email fallback |
 | `send.yml` | manual only (workflow_dispatch) | fires letter sends, including test-sends |
 | `triage.yml` | manual only | one-shot title triage: archive obvious rejects + LLM-score tier-1 titles |
-| `leads.yml`  | Mon 08:00 UTC + manual | Vicidial customer-prospect lead finder (DDG + vicidial.org forum + Reddit) → Haiku classifier |
+| `leads.yml`  | Mon 08:00 UTC + manual | Consulting-buyer lead finder (DDG search + software-review aggregators) → Haiku buyer-fit classifier. Forum/Reddit sources dropped per operator preference (no anonymous-poster outreach). |
 
 All workflows are dispatchable via `gh workflow run <file> --repo th3ghote-blip/autojob`.
 

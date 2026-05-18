@@ -1,12 +1,17 @@
 """Lead pipeline orchestrator.
 
 Flow:
-  1. Run each scraper (DDG / vicidial.org forum / Reddit) → RawLead iterator.
+  1. Run each scraper (DDG search / software-review aggregators) → RawLead iterator.
   2. Upsert into `leads` table by (source, source_url). New rows get
      status='new' and no fit_score yet.
   3. For every row where fit_score IS NULL (new or never-classified), call
-     Haiku to classify. Persist fit_score, classification, company_name,
-     reasoning, scored_at.
+     Haiku to classify as a consulting buyer. Persist fit_score, classification,
+     company_name, reasoning, scored_at.
+
+The classifier scores for CONSULTING-BUYER fit (identifiable company + automation
+stack + SMB size + decision-maker reachable), not Vicidial-specific fit. Existing
+Vicidial leads remain tagged with lead_kind='vicidial'; new leads come in as
+lead_kind='consulting' via base.py / source classes.
 
 Usage:
   python -m workers.leads.runner                 # full run
@@ -28,14 +33,15 @@ from .classifier import classify_lead
 
 # Import sources here so the runner is the single source of truth on which
 # scrapers are active. To disable one for a run, comment it out.
+#
+# 2026-05 pivot: dropping forum + reddit sources per operator preference (no
+# anonymous-poster outreach). Keeping DDG. Adding software-review aggregator.
 from .google_vicidial import source as google_source
-from .vicidial_forum import source as forum_source
-from .reddit_vicidial import source as reddit_source
+from .software_review import source as software_review_source
 
 SOURCES: list[LeadSource] = [
     google_source,
-    forum_source,
-    reddit_source,
+    software_review_source,
 ]
 
 
