@@ -4,6 +4,7 @@ export default function Shell({ children, active }: { children: React.ReactNode;
   const tabs = [
     { href: '/pipeline', label: 'Pipeline', key: 'pipeline' },
     { href: '/jobs',     label: 'Jobs',     key: 'jobs' },
+    { href: '/leads',    label: 'Leads',    key: 'leads' },
     { href: '/sources',  label: 'Sources',  key: 'sources' },
   ]
   return (

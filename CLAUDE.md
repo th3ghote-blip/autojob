@@ -72,6 +72,7 @@ or the operator's preferences.
 | `find-emails.yml` | Tue + Fri 06:30 UTC | website scrape + GitHub commit email fallback |
 | `send.yml` | manual only (workflow_dispatch) | fires letter sends, including test-sends |
 | `triage.yml` | manual only | one-shot title triage: archive obvious rejects + LLM-score tier-1 titles |
+| `leads.yml`  | Mon 08:00 UTC + manual | Vicidial customer-prospect lead finder (DDG + vicidial.org forum + Reddit) → Haiku classifier |
 
 All workflows are dispatchable via `gh workflow run <file> --repo th3ghote-blip/autojob`.
 
@@ -157,6 +158,12 @@ gh workflow run send.yml --repo th3ghote-blip/autojob -f outreach_id=<uuid>
 # Test send to operator's own inbox
 gh workflow run send.yml --repo th3ghote-blip/autojob \
   -f outreach_id=<uuid> -f test_to=th3ghote@gmail.com
+
+# Vicidial lead finder
+gh workflow run leads.yml --repo th3ghote-blip/autojob                          # full run
+gh workflow run leads.yml --repo th3ghote-blip/autojob -f mode=scrape-only      # discover only
+gh workflow run leads.yml --repo th3ghote-blip/autojob -f mode=classify-only    # score backlog
+gh workflow run leads.yml --repo th3ghote-blip/autojob -f dry_run=true          # smoke test
 
 # Quick Supabase queries (operator runs these often)
 SUPA=https://bgxkqlavqnzaxpinlefg.supabase.co
