@@ -41,7 +41,7 @@ jobs:
           cache: pip
           cache-dependency-path: workers/requirements.txt
       - run: pip install -r workers/requirements.txt
-      - name: Run lead pipeline
+      - name: Run web lead pipeline (DDG + classifier)
         shell: bash
         run: |
           MODE="${MODE:-full}"
@@ -53,3 +53,10 @@ jobs:
             classify-only) python -m workers.leads.runner --classify-only $ARGS ;;
             *)             python -m workers.leads.runner                 $ARGS ;;
           esac
+      - name: Pump ATS jobs into consulting leads
+        shell: bash
+        run: |
+          MAX="${MAX_CLASSIFY:-300}"
+          ARGS="--max-classify $MAX"
+          [ "$DRY_RUN" = "true" ] && ARGS="$ARGS --dry-run"
+          python -m workers.leads.ats_consulting $ARGS
