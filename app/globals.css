@@ -51,3 +51,16 @@ select, textarea {
 input:focus, select:focus, textarea:focus {
   @apply outline-none ring-1 ring-violet-500/40 border-violet-500/40;
 }
+
+/* Dropdown options need explicit background — OS-native panel doesn't inherit
+   the select's transparent bg, so light-grey text was rendering on light OS
+   surface and disappearing. */
+select option {
+  background-color: #0f172a; /* slate-900 */
+  color: #e2e8f0;            /* slate-200 */
+}
+select option:checked,
+select option:hover {
+  background-color: #1e293b; /* slate-800 */
+  color: #ffffff;
+}
