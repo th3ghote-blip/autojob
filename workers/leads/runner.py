@@ -34,14 +34,16 @@ from .classifier import classify_lead
 # Import sources here so the runner is the single source of truth on which
 # scrapers are active. To disable one for a run, comment it out.
 #
-# 2026-05 pivot: dropping forum + reddit sources per operator preference (no
-# anonymous-poster outreach). Keeping DDG. Adding software-review aggregator.
+# 2026-05 pivot:
+#   - dropped forum + reddit (no anonymous-poster outreach)
+#   - dropped software_review (SoftwareAdvice/Capterra are Next.js SPAs;
+#     reviews hydrate client-side and our BeautifulSoup parser only saw
+#     empty shells. The signal still flows through DDG snippets, so we
+#     doubled down on DDG with 58 consulting-buyer queries instead.)
 from .google_vicidial import source as google_source
-from .software_review import source as software_review_source
 
 SOURCES: list[LeadSource] = [
     google_source,
-    software_review_source,
 ]
 
 

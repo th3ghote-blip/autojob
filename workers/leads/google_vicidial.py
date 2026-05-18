@@ -1,10 +1,15 @@
-"""DuckDuckGo HTML search for Vicidial customer signals.
+"""DuckDuckGo HTML search for consulting-buyer signals.
 
-Free, no API key, no rate-limit auth needed. We hit the HTML endpoint
-(`https://html.duckduckgo.com/html/`) and parse result links/snippets.
+Free, no API key. We hit the HTML endpoint (`https://html.duckduckgo.com/html/`)
+and parse result links/snippets.
 
-Queries are tuned to find COMPANIES running Vicidial, not the project
-itself. The classifier (Haiku) does the final prospect/non-prospect cut.
+Queries cover the consulting-buyer surface: companies running automation-relevant
+SMB stacks (Vicidial, HubSpot, Pipedrive, Shopify, etc.) AND companies admitting
+AI/ops gaps by hiring Head of AI / fractional CTO / automation lead.
+
+The classifier (Haiku) does the final prospect/non-prospect cut. The historical
+filename `google_vicidial.py` is kept for git continuity; the source slug is
+still `google_vicidial` so existing rows don't fork into duplicates.
 
 Run cost: free.
 """
@@ -21,26 +26,50 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from .base import LeadSource, RawLead
 
-# Queries tuned for buyer-signal, not noise. Each yields ~20-30 hits.
-QUERIES = [
-    '"we use vicidial"',
-    '"running vicidial"',
-    '"vicidial admin" hiring',
-    '"vicidial" "call center" hiring',
-    'site:linkedin.com "vicidial"',
-    'site:upwork.com "vicidial"',
-    'site:reddit.com "vicidial" "our company"',
-    '"vicidial dialer" company',
+# Each query yields ~10-30 hits depending on noise. Total runtime budget
+# scales linearly — keep below ~40 to stay under 5 min per run.
+_TOOLS = [
+    "Vicidial", "GoAutoDial", "HubSpot CRM", "Pipedrive", "Zoho CRM",
+    "Shopify", "QuickBooks Online", "Xero", "Asana", "monday.com",
+    "Mailchimp", "ActiveCampaign", "BambooHR", "ServiceTitan", "Jobber",
+    "Zendesk", "Freshdesk",
 ]
 
-# Domains we know are not customer signals (the project itself, docs, generic).
+# Buyer-signal templates — applied to each tool above.
+_TOOL_TEMPLATES = [
+    '"we use {tool}"',
+    '"running {tool}"',
+    '"our {tool} setup"',
+]
+
+# Standalone queries — companies admitting AI/ops gaps (consulting-buying signal).
+_GAP_QUERIES = [
+    '"hiring head of AI"',
+    '"hiring AI lead"',
+    '"hiring fractional CTO"',
+    '"hiring automation lead"',
+    '"AI transformation consultant"',
+    '"workflow automation consultant"',
+    'site:linkedin.com "hiring AI consultant"',
+]
+
+QUERIES: list[str] = [tpl.format(tool=t) for t in _TOOLS for tpl in _TOOL_TEMPLATES] + _GAP_QUERIES
+
+# Domains we know are not buyer signals (vendors themselves, docs, generic).
 NOISE_DOMAINS = {
-    "vicidial.com",
-    "vicidial.org",
-    "github.com",
-    "stackoverflow.com",
-    "wikipedia.org",
-    "youtube.com",
+    # vendors themselves
+    "vicidial.com", "vicidial.org", "goautodial.com",
+    "hubspot.com", "pipedrive.com", "zoho.com",
+    "shopify.com", "quickbooks.intuit.com", "xero.com",
+    "asana.com", "monday.com", "mailchimp.com", "activecampaign.com",
+    "bamboohr.com", "servicetitan.com", "getjobber.com",
+    "zendesk.com", "freshworks.com", "freshdesk.com",
+    # generic noise
+    "github.com", "stackoverflow.com", "wikipedia.org", "youtube.com",
+    "reddit.com",  # operator: no forum-anchored leads
+    # NOTE: g2.com, capterra.com, softwareadvice.com, trustpilot.com kept IN-scope
+    # — these pages surface NAMED customers in reviews (e.g. GOSAT came through
+    # softwareadvice.com in run #1).
 }
 
 # Pull a domain out of an absolute URL.
